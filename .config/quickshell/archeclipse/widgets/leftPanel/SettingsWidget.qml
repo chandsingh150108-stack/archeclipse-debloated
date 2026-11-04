@@ -717,6 +717,9 @@ Item {
                                     ScrollBar.vertical: ScrollBar {
                                         policy: ScrollBar.AsNeeded
                                     }
+                                    SmoothWheelHandler {
+                                        target: modelList
+                                    }
                                     delegate: Rectangle {
                                         width: modelList.width
                                         height: Math.max(32, optLabel.implicitHeight + 12)
