@@ -46,34 +46,7 @@ Merge conflicts will land in the files this fork touches (`LeftIsland.qml`, `Set
 - Context chips (workspace/window/clipboard/file) apply to OpenRouter only — opencode brings its own tools and cwd.
 - Replies arrive whole, not token-by-token (`opencode run` emits one `text` event per turn).
 
-## Essentials (unchanged from upstream)
 
-- **Wallpapers:** `SUPER + W` → picker. Personal files go in `$HOME/.config/wallpapers/custom`.
-- **Hyprland tweaks:** `$HOME/.config/hypr/config/custom` (git-ignored, survives updates).
-- **Keys:** [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua) or the KeyBinds tab.
-- **Avatar:** `$HOME/.face.icon`.
-
-## Visuals
-
-### Launcher
-
-![Application Launcher](.github/assets/app-launcher.png)
-
-### Left Panel
-
-| Chatbot (now with an OpenCode tab)                 | Settings                                            | Keybinds                                            |
-| ------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
-
-> Screenshots predate the Wallpapers tab; the layout is identical, only the second rail icon changed.
-
-### Wallpaper Switcher
-
-![Wallpaper Switcher](.github/assets/wallpaper-switcher.png)
-
-### Lock
-
-![Lock Screen](.github/assets/lock-screen.png)
 
 ---
 
