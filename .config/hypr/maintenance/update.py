@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Any
 
 COUNTER_URL = "https://personal-counter-two.vercel.app/api/increment?workspace=archeclipse&counter=update"
-REPO_URL = "https://github.com/AymanLyesri/ArchEclipse.git"
+# archeclipse-debloated fork: deployments come from here, not upstream.
+# Merge upstream into the fork to receive upstream changes:
+#   git -C ~ fetch upstream && git merge upstream/master && git push
+REPO_URL = "https://github.com/chandsingh150108-stack/archeclipse-debloated.git"
 
 
 def run_cmd(
@@ -214,7 +217,13 @@ def main() -> None:
                 default_choice="n",
             ),
             presentation.PlannedStep(
-                "plugins", "Updating plugins", default_choice="y"
+                "plugins",
+                "Updating plugins",
+                # hyprpm on this install cannot write its plugin state, and the
+                # fork no longer loads the dynamic-cursors config, so plugins
+                # are opt-in rather than a guaranteed failure that aborts the
+                # update before the bar reload.
+                default_choice="n",
             ),
         ],
     )
