@@ -1,260 +1,57 @@
-<div align="center">
+# archeclipse-debloated
 
-## Overview
+A personal, de-anime'd fork of [**ArchEclipse**](https://github.com/AymanLyesri/ArchEclipse) by AymanLyesri — Arch + Hyprland + Quickshell desktop, trimmed down and extended with a local AI workflow. All credit for the base system goes upstream; this repo only carries the deviations listed below.
 
-<p align="center">
-  <a href=".github/assets/overview.mp4">
-    <img src=".github/assets/overview.png" width="100%" alt="ArchEclipse overview">
-  </a>
+## What changed vs upstream
 
-https://github.com/user-attachments/assets/48210e9f-d21b-437d-ab72-445ba45b8a7d
+- **Left rail trimmed to 6 tabs.** `MangaViewer` and `Donations` are hidden behind `hiddenLeftPanelTabs` in `theme/Settings.qml` (delete a name there to bring a tab back — rail, tab order, IPC validator, and welcome tour all follow that one list). Tab code is untouched, not deleted.
+- **BooruViewer → Wallpapers.** The left tab is now a flat grid over `~/.config/wallpapers/custom` only — no providers, search, tags, or paging. Clicking a tile sets it on the **focused workspace** (`walleclipse set <mon> <ws>`) and regenerates the palette (`coloreclipse wal`). The `BooruViewer` type itself stays for WaifuWidget's embedded viewer.
+- **OpenCode in the ChatBot panel.** New `OpenCode` provider tab next to the OpenRouter models — no terminal, no new window. A `main_opencode.py` bridge reuses the panel contract (same sessions, history, streaming bubble) and runs `opencode run --format json --agent plan` (read-only) in a fixed directory (`~/Chandd`). Model is configurable in Settings → empty means opencode's default. OpenRouter path is untouched.
+- **This fork is the deploy source.** `update.py`'s `REPO_URL` points here, and the `archeclipse` zsh override (machine-local, `~/.config/zsh/custom/local.zsh`) fetches the updater from this repo. The `plugins` update step defaults to off (hyprpm can't write its state here, and a failed step aborts the run before the bar reloads). Dynamic-cursors plugin config ships disabled for the same reason.
+- **No anime defaults.** Waifu widget off, booru cache removed, neutral wallpaper, dark palette.
 
-</p>
+## Install / update
 
-<br/>
+**Need:** Arch / Arch-based + Hyprland + Python 3.
 
-# ArchEclipse
-
-**Hyprland desktop that just works — daily-driven, fully themed, one-command install.**
-
-[![](https://img.shields.io/github/last-commit/AymanLyesri/ArchEclipse?&style=for-the-badge&color=8ad7eb&logo=git&logoColor=D9E0EE&labelColor=1E202B)](https://github.com/AymanLyesri/ArchEclipse/commits/master)
-[![](https://img.shields.io/github/stars/AymanLyesri/ArchEclipse?style=for-the-badge&logo=andela&color=86dbd7&logoColor=D9E0EE&labelColor=1E202B)](https://github.com/AymanLyesri/ArchEclipse/stargazers)
-[![](https://img.shields.io/github/repo-size/AymanLyesri/ArchEclipse?color=86dbce&label=SIZE&logo=protondrive&style=for-the-badge&logoColor=D9E0EE&labelColor=1E202B)](https://github.com/AymanLyesri/ArchEclipse)
-<a href="https://discord.gg/fMGt4vH6s5"> <img alt="Discord members" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FfMGt4vH6s5%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=D9E0EE&label=discord&labelColor=%231E202B&color=5865F2&link=https%3A%2F%2Fdiscord.gg%2FfMGt4vH6s5"> </a>
-
-</div>
-
----
-
-## TL;DR
-
-- **What:** Arch + Hyprland + custom Quickshell UI. Bar, launcher, panels, theming — all integrated.
-- **Install:** 1 command (below). Update with `archeclipse`.
-- **Try first:** `SUPER + W` = wallpapers. Full keys: [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua).
-
----
-
-## Discord Community
-
-<div align="center">
-
-**Stuck on install? Got a bug, an idea, or a screenshot to show off? The Discord is where it all happens.**
-
-<a href="https://discord.gg/fMGt4vH6s5"> <img alt="Discord members" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FfMGt4vH6s5%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=D9E0EE&label=discord&labelColor=%231E202B&color=5865F2&link=https%3A%2F%2Fdiscord.gg%2FfMGt4vH6s5"> </a>
-
-</div>
-
-Fastest place to get help — faster than github issues, and the maintainer hangs out there.
-
----
-
-## Install
-
-**Need:** Arch / Arch-based + Hyprland + Python 3. Rest is auto-installed.
+Fresh machine (deploys this fork's dotfiles onto `$HOME`, installs packages):
 
 ```bash
-python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/ArchEclipse/refs/heads/master/.config/hypr/maintenance/install.py)
+python3 <(curl -fsSL https://raw.githubusercontent.com/chandsingh150108-stack/archeclipse-debloated/master/.config/hypr/maintenance/update.py)
 ```
+
+Day to day (after placing the `archeclipse()` override in `~/.config/zsh/custom/local.zsh`):
 
 ```bash
-archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
+archeclipse   # update from this fork
 ```
 
----
+`$HOME` itself is the git worktree (`~/.git`, remote `origin` = this fork, `upstream` = AymanLyesri/ArchEclipse), so `git -C ~ status/diff/log` shows exactly what deviates. Untracked files (settings cache, `hyprland.conf`, wallpapers) survive every update.
 
-## What you get
+## Receiving upstream changes
 
-| Need            | How                                                                             |
-| --------------- | ------------------------------------------------------------------------------- |
-| **Bar**         | Modular widgets: workspaces, bandwidth, weather, player, tray, crypto           |
-| **Launcher**    | App search + clipboard + emoji + calc + URLs + custom cmds. No Rofi.            |
-| **Right panel** | Player, notifications, calendar, crypto, anime viewer                           |
-| **Left panel**  | Chatbot, booru browser, manga reader (WIP), keybinds, settings                  |
-| **Theming**     | Wallpaper → full system colors. Light/dark toggle. Hot-reload. No manual edits. |
-
-**Stack:** QML/QtQuick (Quickshell) · Python 3 + Bash · C (perf utils) · Hyprland/Wayland
-
-| Workspace                    | Opens                                              |
-| ---------------------------- | -------------------------------------------------- |
-| W2 / W4 / W5 / W6 / W7 / W10 | Browser / Spotify / Btop / Discord / Steam / Games |
-| W1, W3, W8, W9               | General                                            |
-
-> Apps auto-launch to their workspace at login.
-
----
-
-## Essentials
-
-- **Avatar:** `$HOME/.face.icon`
-- **Wallpapers:** `SUPER + W` → picker. Add yours to `$HOME/.config/wallpapers/custom`
-- **Hyprland tweaks:** `$HOME/.config/hypr/config/custom`
-- **Laptop:** install `upower` for battery
-- **Keys:** [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua) or Left Panel in-app
-
----
-
-<details>
-<summary><b>How it works — architecture, theming, widgets (click to expand)</b></summary>
-
-<br/>
-
-**One idea:** UI + scripts + theming ship as one product. Not random dotfiles.
-
-### Architecture
-
-```mermaid
-graph TB
-    subgraph Install["Setup & maintenance"]
-        Installer["install.py / update.py<br/>Python installer"]
-        Pacman["components/packages.py<br/>embedded package list"]
-        Archeclipse["archeclipse() zsh fn<br/>update wrapper"]
-    end
-
-    subgraph Hypr["Hyprland — window manager (Lua)"]
-        HyprMain["hyprland.lua<br/>entry point"]
-        HyprConfig["config/*.lua<br/>bind, animations, monitor,<br/>windowrule, gesture, input"]
-        HyprScripts["scripts / scripts-c<br/>screenshot, screenrecord,<br/>brightness, clipboard, wallpaper-loop"]
-        WallpaperDaemon["wallpaper-daemon<br/>hyprpaper / mpvpaper"]
-        Evremap["evremap<br/>key remapping service"]
-    end
-
-    subgraph QS["Quickshell shell (QtQuick + QML)"]
-        Shell["shell.qml<br/>ShellRoot bootstrap"]
-
-        subgraph BarSys["Bar system"]
-            Bar["Bar.qml<br/>state machine:<br/>default/search/control/<br/>volume/brightness/recording"]
-            BarIslands["islands/<br/>SearchIsland, ControlIsland,<br/>PlayerIsland, WallpaperIsland,<br/>WeatherIsland, RightIsland"]
-            BarSub["bar widgets<br/>Battery, Volume, Bandwidth,<br/>Brightness, Player, Recording"]
-        end
-
-        AppLauncher["LauncherPanel.qml<br/>quickshell launcher +<br/>clipboard + emoji + notes"]
-
-        subgraph Panels["Side panels"]
-            LeftPanel["leftPanel/<br/>Settings, ChatBot,<br/>BooruViewer, MangaViewer,<br/>KeyBinds, UserProfile"]
-            RightPanel["rightPanel/<br/>Calendar, Notifications,<br/>SystemResources, Crypto, Waifu"]
-        end
-
-        subgraph Core["Core layers"]
-            Widgets["widgets/shared/<br/>reusable QML components"]
-            Services["services/<br/>BarState, Brightness,<br/>ScreenRecorder, Ipc,<br/>Supabase, Weather"]
-            Utils["utils<br/>SettingsUtils, MonitorUtils,<br/>TimeUtils, WindowManager"]
-            Theme["theme/<br/>Theme.qml + GlobalTheme<br/>typed config & styling"]
-        end
-
-        subgraph NativeScripts["Native/companion scripts"]
-            CLoops["*.c loops<br/>system-resources, bandwidth,<br/>keystroke visualizer"]
-            PyScripts["*.py<br/>chatbot, booru, manga,<br/>crypto, auth-callback"]
-            ShScripts["*.sh<br/>get-wallpapers, translate,<br/>get-keybinds, image-color"]
-        end
-    end
-
-    subgraph Backend["External services"]
-        Supabase[("Supabase<br/>auth + RLS + settings sync")]
-        APIs[("Booru / manga / crypto /<br/>weather / chatbot APIs")]
-    end
-
-    Installer --> Pacman
-    Installer --> HyprMain
-    Archeclipse --> Installer
-
-    HyprMain --> HyprConfig
-    HyprConfig --> HyprScripts
-    HyprConfig --> WallpaperDaemon
-    HyprConfig --> Evremap
-    HyprMain -- "spawns/execs" --> Shell
-
-    Shell --> BarSys
-    Shell --> AppLauncher
-    Shell --> Panels
-    Shell --> Core
-
-    Bar --> BarIslands
-    Bar --> BarSub
-    BarIslands -.->|opens| AppLauncher
-
-    Widgets --> Core
-    LeftPanel --> Widgets
-    RightPanel --> Widgets
-    BarSys --> Widgets
-
-    Core --> NativeScripts
-    Utils --> Services
-    Services -->|"auth, settings sync"| Supabase
-    NativeScripts -->|"HTTP calls"| APIs
-
-    Theme -.->|styles| Shell
-
-    classDef install fill:#EEEDFE,stroke:#534AB7,color:#26215C
-    classDef hypr fill:#E1F5EE,stroke:#0F6E56,color:#04342C
-    classDef qs fill:#FAECE7,stroke:#993C1D,color:#4A1B0C
-    classDef core fill:#E6F1FB,stroke:#185FA5,color:#042C53
-    classDef ext fill:#FAEEDA,stroke:#854F0B,color:#412402
-
-    class Installer,Pacman,Archeclipse install
-    class HyprMain,HyprConfig,HyprScripts,WallpaperDaemon,Evremap hypr
-    class Shell,Bar,BarIslands,BarSub,AppLauncher,LeftPanel,RightPanel qs
-    class Widgets,Services,Utils,Theme,CLoops,PyScripts,ShScripts core
-    class Supabase,APIs ext
+```bash
+git -C ~ fetch upstream
+git -C ~ merge upstream/master
+git -C ~ push
 ```
 
-### Theming
+Merge conflicts will land in the files this fork touches (`LeftIsland.qml`, `Settings.qml`, `SettingsWidget.qml`, `ChatBotWidget.qml`) — resolve, reload the bar, push.
 
-- Wallpaper → colors via [Cwal](https://github.com/nitinbhat972/cwal) (C PyWal, 10-50x faster).
-- Auto-applies to Quickshell, terminal, UI. Zero manual edits.
-- Per-workspace static / video wallpapers. Light/dark toggle. Hot-reload.
+## OpenCode provider notes
 
-### Widgets (Quickshell / QML)
+- Requires the `opencode` binary and a `~/Chandd` project directory (override both in Settings).
+- Panel sessions map 1:1 to opencode sessions (`--session`), so they show up in `opencode session list` with a `panel-<id>` title.
+- The plan agent is read-only: it can look at your files, never edit or run commands.
+- Context chips (workspace/window/clipboard/file) apply to OpenRouter only — opencode brings its own tools and cwd.
+- Replies arrive whole, not token-by-token (`opencode run` emits one `text` event per turn).
 
-- Reactive QML via `shell.qml` + singletons (`BarState`, `GlobalTheme`, `Supabase`, `Weather`).
-- Bar slots swappable at runtime.
-- Note: migrated from Eww/AGS on 2026-09-12. Old `~/ArchEclipse-AGS` / `~/agsv1` folders are safe to delete.
+## Essentials (unchanged from upstream)
 
-### Launcher details
-
-Fuzzy search · clipboard history · emoji · calc · URL forward · custom cmds.
-
-### Panels detail
-
-- **Right:** media, notifications, calendar, script runner, crypto, Danbooru/Gelbooru viewer.
-- **Left:** chatbot (multi-API), booru browser, MangaDex reader (WIP), live keybinds, Hyprland/Quickshell settings.
-
-### Deployer
-
-Python installer = deps + dotfiles + packages. One command in, `archeclipse` keeps you updated.
-
-</details>
-
----
-
-## Plugins
-
-### [WallEclipse](https://github.com/AymanLyesri/WallEclipse)
-
-Preloaded layer-shell wallpaper daemon for Hyprland — replaces hyprpaper with instant, per-workspace wallpaper switching.
-
-![WallEclipse overview](https://raw.githubusercontent.com/AymanLyesri/WallEclipse/master/.github/assets/overview.gif)
-
-### [ColorEclipse](https://github.com/AymanLyesri/ColorEclipse)
-
-Light/dark theme applier for ArchEclipse — drives gsettings, the GTK/icon/cursor themes, and wallpaper color generation from one binary.
-
-![ColorEclipse overview](https://raw.githubusercontent.com/AymanLyesri/ColorEclipse/main/.github/assets/overview.gif)
-
----
-
-## Roadmap
-
-- [ ] Per-component docs _(in progress)_
-- [ ] Gaming perf tuning _(in progress)_
-- [ ] Ongoing polish
-
-Bugs / ideas → [open an issue](https://github.com/AymanLyesri/ArchEclipse/issues) or come say hi in **[Discord](https://discord.gg/fMGt4vH6s5)**.
-
----
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=aymanlyesri/ArchEclipse&type=Date)](https://star-history.dera.page/#aymanlyesri/ArchEclipse&Date)
-
----
+- **Wallpapers:** `SUPER + W` → picker. Personal files go in `$HOME/.config/wallpapers/custom`.
+- **Hyprland tweaks:** `$HOME/.config/hypr/config/custom` (git-ignored, survives updates).
+- **Keys:** [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua) or the KeyBinds tab.
+- **Avatar:** `$HOME/.face.icon`.
 
 ## Visuals
 
@@ -262,67 +59,22 @@ Bugs / ideas → [open an issue](https://github.com/AymanLyesri/ArchEclipse/issu
 
 ![Application Launcher](.github/assets/app-launcher.png)
 
-### Right Panel
-
-| Waifu · Player · Calendar · Notifications                        | Calendar · Player · Waifu · Resources                            |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
-| ![Right Panel Layout 1](.github/assets/right-panel-layout-1.png) | ![Right Panel Layout 2](.github/assets/right-panel-layout-2.png) |
-
 ### Left Panel
 
-| Chatbot                                           | Booru                                           |
-| ------------------------------------------------- | ----------------------------------------------- |
-| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Booru](.github/assets/left-panel-booru-1.png) |
+| Chatbot (now with an OpenCode tab)                 | Settings                                            | Keybinds                                            |
+| ------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
+| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
 
-| Settings                                            | Keybinds                                            |
-| --------------------------------------------------- | --------------------------------------------------- |
-| ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
+> Screenshots predate the Wallpapers tab; the layout is identical, only the second rail icon changed.
 
 ### Wallpaper Switcher
-
-`SUPER + W` → per-workspace static / video picker with live theming. Add yours to `$HOME/.config/wallpapers/custom`.
 
 ![Wallpaper Switcher](.github/assets/wallpaper-switcher.png)
 
 ### Lock
 
-<!-- ![Workspace Overview](.github/assets/workspace-overview.png) -->
-
 ![Lock Screen](.github/assets/lock-screen.png)
 
 ---
 
-## ❤️ Support
-
-Coffee = more dev. Thanks.
-
-<div align="center">
-
-<a href="https://ko-fi.com/aymanlyesri">
-  <img src="https://img.shields.io/badge/☕_Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" />
-</a>
-<a href="https://www.buymeacoffee.com/aymanlyesri">
-  <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" />
-</a>
-<a href="https://paypal.me/LyesriAyman">
-  <img src="https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" />
-</a>
-
-<details>
-<summary>Crypto addresses</summary>
-
-**₿ Bitcoin**
-
-```txt
-1JisW9xeatCFadtgsenjbpCcFePZGPyXow
-```
-
-**Ξ Ethereum / BSC**
-
-```txt
-0x52d06d47bb9dc75eaf027f18cb197d5817989a96
-```
-
-</details>
-
-</div>
+Forked from [AymanLyesri/ArchEclipse](https://github.com/AymanLyesri/ArchEclipse) — bugs in the base system belong upstream; bugs in the deviations above belong here.
