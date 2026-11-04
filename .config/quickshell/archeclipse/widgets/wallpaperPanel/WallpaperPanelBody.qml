@@ -146,24 +146,18 @@ Item {
     readonly property var selectedWallpapers: wallpapers[selectedCategory] ?? []
     // Capture must wait for data/thumbnail generation and masonry aspect updates;
     // CaptureIpc separately checks instantiated tiles (including opacity-zero ones).
-    readonly property bool captureReady: !WallpaperService.fetchProc.running && !WallpaperService.thumbProc.running && !WallpaperService._thumbPending && !whLoading && Object.keys(WallpaperService._pendingAspect).length === 0 && (progressStatus === "idle" || progressStatus === "success") && (isWallhaven ? whResults.length > 0 : selectedWallpapers.length > 0)
+    readonly property bool captureReady: !WallpaperService.fetchProc.running && !WallpaperService.thumbProc.running && !WallpaperService._thumbPending && Object.keys(WallpaperService._pendingAspect).length === 0 && (progressStatus === "idle" || progressStatus === "success") && selectedWallpapers.length > 0
     // Exposed for Ipc wallpaperDiag ("strip" query) and tests.
     readonly property alias wallStrip: wallScroll
     // Test hook for the "stripdeep" diag: lets automation walk the local
     // masonry geometry (rows, cellX/cellW, inWindow) without a mouse.
     readonly property alias localMasonry: localMasonry
 
-    // ------------------------------------------------- provider abstraction
-    // "local" reuses the folder categories; "wallhaven" fetches into wallhaven/, same pipeline.
-    readonly property var providerTypes: ["local", "wallhaven"]
-    readonly property string provider: Settings.wallpaperProvider
+    // Local-only browser: folder categories from the shared store.
     // Workspace-switch transition (slide default, fade optional): Settings.wallpaperTransition
     // is the source of truth, the daemon keeps its own copy, and setTransition() reloads it.
     readonly property var transitionTypes: ["slide", "fade"]
     readonly property string transition: Settings.wallpaperTransition
-    readonly property var wh: Settings.wallpaperWallhaven
-    readonly property string whApiKey: Settings.apiKey("wallhaven", "key")
-    readonly property bool isWallhaven: root.provider === "wallhaven"
 
     // Shared masonry (both providers): exact results height from rows × tile height plus gaps;
     // tile widths come from aspect ratios, never the viewport.
@@ -183,15 +177,6 @@ Item {
     function noteLocalAspect(path, ratio) {
         WallpaperService.noteLocalAspect(path, ratio);
     }
-    // Wallhaven aspects are known up-front from the resolution string.
-    function whAspect(item) {
-        const m = String((item && item.resolution) || "").split("x");
-        const w = parseFloat(m[0]), h = parseFloat(m[1]);
-        return (w > 0 && h > 0) ? w / h : 16 / 9;
-    }
-
-    readonly property string wallhavenScript: home + "/.config/quickshell/archeclipse/scripts/wallhaven.py"
-    readonly property string wallhavenDir: home + "/.config/wallpapers/wallhaven"
 
     // First-frame thumbnails for video tiles live in the shared store
     // (adopted from WallpaperService's background ffmpeg queue).
@@ -200,69 +185,9 @@ Item {
         return WallpaperService.thumbFor(path);
     }
 
-    // Wallhaven filter option models (static; index-synced like categoryCombo).
-    // atleast/ratios use "Any" as the display label for the empty (omit) value.
-    readonly property var whSortingItems: ["date_added", "relevance", "random", "views", "favorites", "toplist"]
-    readonly property var whCategoryNames: ["General", "Anime", "People"]
-    readonly property var whOrderItems: ["desc", "asc"]
-    readonly property var whTopRangeItems: ["1d", "3d", "1w", "1M", "3M", "6M", "1y"]
-    readonly property var whAtleastItems: ["Any", "1920x1080", "2560x1440", "3840x2160"]
-    readonly property var whRatioItems: ["Any", "16x9", "16x10", "21x9", "9x16", "1x1", "4x3", "32x9"]
-    function whMapped(v, items) {
-        return (v === "" ? items[0] : v);
-    }
-    function whUnmap(v, items) {
-        return (v === items[0] ? "" : v);
-    }
-
-    // Read-modify-write one Wallhaven filter through updateSetting (new identity so the binding
-    // re-evaluates). Filter edits reset to page 1 and debounce; page turns search immediately.
-    function setWh(key, value, immediate) {
-        const next = Object.assign({}, root.wh);
-        next[key] = value;
-        if (key !== "page")
-            next.page = 1;
-        Settings.updateSetting("wallpaperSwitcher.wallhaven", next);
-        if (immediate)
-            root.whSearch();
-        else
-            whDebounce.restart();
-    }
-
-    property var whResults: []
-    property var whMeta: ({
-            page: 1,
-            per_page: 24,
-            total: 0,
-            last_page: 1,
-            seed: ""
-        })
-    property bool whLoading: false
-    property int _whSeq: 0
-    property string _whErr: ""
-    property string _whDownloadedPath: ""
-    property string _pendingWhApply: "" // "apply" | "" (save only)
-    Timer {
-        id: whDebounce
-        interval: 400
-        onTriggered: root.whSearch()
-    }
-    // Key added/removed while browsing: a removed key must drop an NSFW
-    // purity the guest API would 401 on; either way re-run the search.
-    onWhApiKeyChanged: {
-        if (!root.isWallhaven)
-            return;
-        if (root.whApiKey === "" && root.wh.purity.charAt(2) === "1")
-            root.setWh("purity", "100");
-        else
-            root.whSearch();
-    }
-    onProviderChanged: {
-        // NOTE: read root.provider, NOT isWallhaven — dependent bindings re-evaluate after change
-        // handlers, so isWallhaven still holds the old value. force=true skips whSearch's guard.
-        if (root.provider === "wallhaven")
-            root.whSearch(true);
-    }
+    // The category combo opens a popup (separate window): while it is up the island is
+    // not hovered, so its hover pin would otherwise expire mid-pick. Wired from the pin.
+    readonly property bool comboPopupOpen: categoryCombo.popupHovered
 
     property var currentWallpapers: []           // path per workspace index, this monitor
 
@@ -277,8 +202,6 @@ Item {
         const ws = Hyprland.focusedWorkspace;
         if (ws)
             root.selectedWorkspaceId = ws.id;
-        if (root.isWallhaven)
-            root.whSearch();
     }
 
     // Best-effort: a fire-and-forget spawn during teardown may not survive, so the daemon's own
@@ -293,8 +216,6 @@ Item {
         WallpaperService.refresh();
         fetchCurrentWallpapers();
         root.refreshGreeterTile();
-        if (root.isWallhaven)
-            root.whSearch();
     }
 
     // Re-fetch when the real monitor name arrives (onLoaded is after onCompleted). Restart, not
@@ -395,157 +316,6 @@ Item {
     // Build the command from root.monitorName, NOT effectiveMonitor (still stale in the handler).
     function restartCurrentFetch() {
         root._readCurrentFor(root.monitorName);
-    }
-
-    // ------------------------------------------------- wallhaven provider
-
-    function whSearch(force) {
-        // Never gate on isWallhaven here: onProviderChanged runs before it re-evaluates
-        // (local->wallhaven bailed with no results) — the handler passes force=true instead.
-        if (!force && !root.isWallhaven)
-            return;
-        root._whSeq++;
-        root.whLoading = true;
-        setProgress("searching");
-        // In-flight run: let it finish and start the newest request from its onExited.
-        // Killing it delivered SIGTERM as a failure of the run that replaced it.
-        if (whSearchProc.running)
-            return;
-        startWhSearch();
-    }
-
-    function startWhSearch() {
-        const w = root.wh;
-        const cmd = ["python3", root.wallhavenScript, "--search", "--categories", w.categories, "--purity", w.purity, "--sorting", w.sorting, "--order", w.order, "--page", String(w.page)];
-        if (w.q !== "")
-            cmd.push("--q", w.q);
-        if (w.sorting === "toplist" && w.topRange !== "")
-            cmd.push("--top-range", w.topRange);
-        if (w.atleast !== "")
-            cmd.push("--atleast", w.atleast);
-        if (w.ratios !== "")
-            cmd.push("--ratios", w.ratios);
-        // Random paging repeats without the seed the API returned.
-        if (w.sorting === "random" && root.whMeta.seed !== "")
-            cmd.push("--seed", root.whMeta.seed);
-        if (root.whApiKey !== "")
-            cmd.push("--api-key", root.whApiKey);
-        whSearchProc._seq = root._whSeq;
-        whSearchProc.command = cmd;
-        root._whErr = "";
-        whSearchProc.running = true;
-    }
-
-    Process {
-        id: whSearchProc
-        property int _seq: 0
-        stdout: StdioCollector {
-            onStreamFinished: {
-                // _seq is set at start only, so a superseded run's delivery is dropped here
-                // (the old per-run overwrite before the kill misread it as current).
-                if (whSearchProc._seq !== root._whSeq)
-                    return;
-                root.whLoading = false;
-                try {
-                    const payload = JSON.parse(text);
-                    root.whResults = payload.data || [];
-                    const m = payload.meta || {};
-                    root.whMeta = {
-                        page: m.page ?? root.wh.page,
-                        per_page: m.per_page ?? (payload.data || []).length,
-                        total: m.total ?? 0,
-                        last_page: m.last_page ?? root.wh.page,
-                        seed: m.seed ?? ""
-                    };
-                    root.progressStatus = "idle";
-                } catch (e) {
-                    root.notifyError("searching wallhaven", e);
-                }
-            }
-        }
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (whSearchProc._seq === root._whSeq)
-                    root._whErr = text;
-            }
-        }
-        onExited: code => {
-            // A superseded run: its result was dropped, so run the request that replaced it.
-            if (whSearchProc._seq !== root._whSeq) {
-                root.startWhSearch();
-                return;
-            }
-            root.whLoading = false;
-            if (code !== 0) {
-                let msg = "search failed (exit " + code + ")";
-                try {
-                    msg = JSON.parse(root._whErr).message || msg;
-                } catch (e) {}
-                root.notifyError("searching wallhaven", msg);
-            }
-        }
-    }
-
-    // Save + apply: download the full-res file into wallhaven/ (a permanent local category),
-    // then reuse applyWallpaper so theme regen, badges and delete behave identically.
-    function whSaveApply(item, apply) {
-        if (!item || whDownloadProc.running)
-            return;
-        const base = ((item.full !== "" ? item.full : item.id).split("/").pop().split("?")[0]) || (item.id + ".jpg");
-        const dest = root.wallhavenDir + "/" + base;
-        setProgress("downloading");
-        root._pendingWhApply = apply ? "apply" : "";
-        root._whDownloadedPath = "";
-        const cmd = ["python3", root.wallhavenScript, "--download", item.id, "--dest", dest];
-        if (item.full !== "")
-            cmd.push("--full-url", item.full);
-        if (root.whApiKey !== "")
-            cmd.push("--api-key", root.whApiKey);
-        whDownloadProc.command = cmd;
-        whDownloadProc.running = true;
-    }
-
-    Process {
-        id: whDownloadProc
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    root._whDownloadedPath = JSON.parse(text).path || "";
-                } catch (e) {
-                    root._whDownloadedPath = "";
-                }
-            }
-        }
-        stderr: StdioCollector {
-            onStreamFinished: {
-                root._whErr = text;
-            }
-        }
-        onExited: code => {
-            const doApply = root._pendingWhApply === "apply";
-            const path = root._whDownloadedPath;
-            root._pendingWhApply = "";
-            if (code === 0 && path !== "") {
-                // The wallhaven/ dir shows up as a local category; the
-                // apply path below owns progress from here (theme regen).
-                root.fetchWallpapers();
-                if (doApply) {
-                    root.applyWallpaper(path);
-                } else {
-                    Notifications.notify({
-                        summary: "Success",
-                        body: "Wallpaper saved to wallhaven."
-                    });
-                    root.setProgress("success");
-                }
-            } else {
-                let msg = "download failed (exit " + code + ")";
-                try {
-                    msg = JSON.parse(root._whErr).message || msg;
-                } catch (e) {}
-                root.notifyError("saving wallhaven wallpaper", msg);
-            }
-        }
     }
 
     // ----------------------------------------------------------- set/apply
@@ -1130,15 +900,6 @@ Item {
                     anchors.centerIn: parent
                     spacing: Theme.spacing
 
-                    // Provider switch: local folders vs. wallhaven.cc API.
-                    AppSegmentedControl {
-                        model: root.providerTypes
-                        currentIndex: root.providerTypes.indexOf(root.provider)
-                        cellHPadding: 8
-                        cellVPadding: 4
-                        onActivated: (i, v) => Settings.updateSetting("wallpaperSwitcher.provider", v)
-                    }
-
                     AppSegmentedControl {
                         model: root.targetTypes
                         currentIndex: root.targetTypes.indexOf(root.targetType)
@@ -1161,7 +922,6 @@ Item {
                     AppComboBox {
                         id: categoryCombo
                         objectName: "categoryCombo"
-                        visible: !root.isWallhaven
                         model: root.categories
                         Layout.preferredHeight: 26
                         currentIndex: root.categories.indexOf(root.selectedCategory)
@@ -1171,7 +931,6 @@ Item {
                     AppButton {
                         tooltipText: "Set a random wallpaper from this view"
                         text: "Random"
-                        visible: !root.isWallhaven
                         Layout.preferredHeight: 26
                         onClicked: root.setRandomWallpaper()
                     }
@@ -1245,168 +1004,11 @@ Item {
                 }
             }
 
-            // wallhaven provider: dynamic filter form. Each control writes one wallpaperWallhaven
-            // field via setWh (debounced search); the form renders the provider's declared params.
-            Rectangle {
-                visible: root.isWallhaven
-                Layout.fillWidth: true
-                implicitHeight: whFilterCol.implicitHeight + 10
-                radius: Theme.radius
-                color: Theme.surface
-                clip: true
-
-                ColumnLayout {
-                    id: whFilterCol
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    spacing: Theme.spacing
-
-                    // filters: one wrapping row (query, sort, categories,
-                    // purity, size) so every provider filter lives together.
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacing
-                        AppTextField {
-                            id: whQuery
-                            width: 180
-                            placeholderText: "Search wallhaven.cc (tags, e.g. mountains lake)…"
-                            text: root.wh.q
-                            onTextChanged: {
-                                if (text !== root.wh.q)
-                                    root.setWh("q", text);
-                            }
-                        }
-                        AppComboBox {
-                            model: root.whSortingItems
-                            implicitHeight: 26
-                            currentIndex: Math.max(0, root.whSortingItems.indexOf(root.wh.sorting))
-                            onActivated: i => root.setWh("sorting", root.whSortingItems[i])
-                        }
-                        AppComboBox {
-                            model: root.whOrderItems
-                            implicitHeight: 26
-                            currentIndex: Math.max(0, root.whOrderItems.indexOf(root.wh.order))
-                            onActivated: i => root.setWh("order", root.whOrderItems[i])
-                        }
-                        AppComboBox {
-                            visible: root.wh.sorting === "toplist"
-                            model: root.whTopRangeItems
-                            implicitHeight: 26
-                            currentIndex: Math.max(0, root.whTopRangeItems.indexOf(root.wh.topRange))
-                            onActivated: i => root.setWh("topRange", root.whTopRangeItems[i])
-                        }
-                        AppFilterChips {
-                            label: "Categories:"
-                            model: root.whCategoryNames
-                            checkedValues: {
-                                const out = [];
-                                for (let i = 0; i < root.whCategoryNames.length; i++) {
-                                    if (root.wh.categories.charAt(i) === "1")
-                                        out.push(root.whCategoryNames[i]);
-                                }
-                                return out;
-                            }
-                            allowEmpty: false
-                            onToggled: (i, v, checked) => {
-                                const bits = root.wh.categories.split("");
-                                bits[i] = checked ? "1" : "0";
-                                root.setWh("categories", bits.join(""));
-                            }
-                            onEmptyRejected: Notifications.notify({
-                                summary: "Wallhaven",
-                                body: "At least one category must stay on."
-                            })
-                        }
-                        Text {
-                            text: "Purity:"
-                            color: Theme.fgDim
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 2
-                            height: 26
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        Repeater {
-                            model: [
-                                {
-                                    label: "SFW",
-                                    value: "100"
-                                },
-                                {
-                                    label: "Sketchy",
-                                    value: "110"
-                                },
-                                {
-                                    label: "NSFW",
-                                    value: "111"
-                                }
-                            ]
-                            delegate: AppButton {
-                                required property var modelData
-                                readonly property bool on: root.wh.purity === modelData.value
-                                readonly property bool needsKey: modelData.value === "111"
-                                enabled: !needsKey || root.whApiKey !== ""
-                                text: modelData.label
-                                height: 24
-                                pixelSize: Theme.fontSize - 2
-                                idleBg: on ? Theme.surfaceActive : Theme.bg
-                                idleFg: on ? Theme.accent : Theme.fg
-                                hoverFg: on ? Theme.accent : Theme.fg
-                                outlined: true
-                                outlineColor: on ? Theme.accent : Theme.border
-                                tooltipText: (needsKey && root.whApiKey === "") ? "Needs a Wallhaven API key (Settings → API Keys)" : ""
-                                onClicked: root.setWh("purity", modelData.value)
-                            }
-                        }
-                        AppComboBox {
-                            model: root.whAtleastItems
-                            implicitHeight: 26
-                            currentIndex: Math.max(0, root.whAtleastItems.indexOf(root.whMapped(root.wh.atleast, root.whAtleastItems)))
-                            onActivated: i => root.setWh("atleast", root.whUnmap(root.whAtleastItems[i], root.whAtleastItems))
-                        }
-                        AppComboBox {
-                            model: root.whRatioItems
-                            implicitHeight: 26
-                            currentIndex: Math.max(0, root.whRatioItems.indexOf(root.whMapped(root.wh.ratios, root.whRatioItems)))
-                            onActivated: i => root.setWh("ratios", root.whUnmap(root.whRatioItems[i], root.whRatioItems))
-                        }
-                    }
-
-                    // result count + page nav
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacing
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignRight
-                            elide: Text.ElideRight
-                            color: Theme.fgDim
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 2
-                            text: root.whLoading ? "Searching…" : root.whMeta.total + " results • page " + root.whMeta.page + "/" + root.whMeta.last_page
-                        }
-                        AppButton {
-                            text: "‹"
-                            tooltipText: "Previous Wallhaven page"
-                            enabled: root.wh.page > 1 && !root.whLoading
-                            Layout.preferredHeight: 26
-                            onClicked: root.setWh("page", Math.max(1, root.wh.page - 1), true)
-                        }
-                        AppButton {
-                            text: "›"
-                            tooltipText: "Next Wallhaven page"
-                            enabled: root.wh.page < root.whMeta.last_page && !root.whLoading
-                            Layout.preferredHeight: 26
-                            onClicked: root.setWh("page", root.wh.page + 1, true)
-                        }
-                    }
-                }
-            }
 
             // all wallpapers in the selected category — horizontal strip
             SmoothFlickable {
                 id: wallScroll
                 objectName: "wallStrip"
-                visible: !root.isWallhaven
                 Layout.fillWidth: true
                 Layout.preferredHeight: root.resultsH
                 flickableDirection: Flickable.HorizontalFlick
@@ -1665,107 +1267,6 @@ Item {
                 }
             }
 
-            // wallhaven results — remote thumbs with the same tile chrome: click downloads the
-            // full-res file into wallhaven/ and applies it, right-click saves only.
-            SmoothFlickable {
-                id: whScroll
-                visible: root.isWallhaven
-                Layout.fillWidth: true
-                Layout.preferredHeight: root.resultsH
-                flickableDirection: Flickable.HorizontalFlick
-                contentWidth: whMasonry.contentWidth
-                contentHeight: height
-                ScrollBar.horizontal: ScrollBar {
-                    policy: ScrollBar.AsNeeded
-                    
-                }
-
-                AppMasonryRow {
-                    id: whMasonry
-                    width: whScroll.width
-                    height: implicitHeight
-                    rows: Settings.wallpaperMasonryRows
-                    spacing: Theme.spacing
-                    rowHeight: Settings.wallpaperTileSize
-                    model: root.whResults
-                    aspectRatio: function (item) {
-                        return root.whAspect(item);
-                    }
-                    viewLeft: whScroll.contentX - 700
-                    viewRight: whScroll.contentX + whScroll.width + 700
-                    buffer: 700
-                    placeholder: Rectangle {
-                        color: Theme.surface
-                        radius: Theme.radius
-                    }
-                    delegate: Rectangle {
-                        id: whTile
-                        // Plain (not required) modelData — pushed by the
-                        // masonry via Loader (same contract as AppMasonry).
-                        property var modelData
-                        width: whMasonry.widthFor(modelData)
-                        height: whMasonry.rowHeight
-                        // Fades in once the remote thumb decodes (Error
-                        // counts as settled so a dead URL can't hide a tile).
-                        readonly property bool thumbSettled: whImg.status === Image.Ready || whImg.status === Image.Error
-                        readonly property string res: whTile.modelData === undefined ? "" : (whTile.modelData.resolution || "")
-                        opacity: whTile.thumbSettled ? 1 : 0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 250
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                        radius: Theme.radius
-                        color: whTileMa.containsMouse ? Theme.surfaceHover : Theme.surface
-                        border.width: whTileMa.containsMouse ? 2 : 0
-                        border.color: Theme.muted
-
-                        AppImage {
-                            id: whImg
-                            anchors.fill: parent
-                            // Zero inset: parity with the local-masonry thumb
-                            // (tiles read edge-to-edge, booru masonry gaps).
-                            source: whTile.modelData === undefined ? "" : whTile.modelData.preview
-                            sourceWidth: Math.max(1, Math.round(whTile.width))
-                            badges: [whTile.res !== "" ? whTile.res : (whTile.modelData === undefined ? "" : whTile.modelData.purity)]
-                        }
-
-                        // Hidden while the strip moves (same wheel-glide
-                        // reason as the local tiles above).
-                        AppTooltip {
-                            visible: whTileMa.containsMouse && !whScroll.moving
-                            delay: 400
-                            text: whTile.modelData === undefined ? "" : `${whTile.modelData.id} • ${whTile.res} • ${whTile.modelData.purity}/${whTile.modelData.category}\nClick: download + apply.\nRight-click: save only.`
-                        }
-
-                        MouseArea {
-                            id: whTileMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            cursorShape: Qt.PointingHandCursor
-                            onWheel: wheel => wheel.accepted = false
-                            onClicked: mouse => {
-                                if (mouse.button === Qt.RightButton)
-                                    root.whSaveApply(whTile.modelData, false);
-                                else
-                                    root.whSaveApply(whTile.modelData, true);
-                            }
-                        }
-                    }
-                }
-
-                // Empty state (contentWidth is 0, so this never scrolls away).
-                Text {
-                    visible: root.whResults.length === 0 && !root.whLoading
-                    text: "No results — try a different query or filter."
-                    color: Theme.muted
-                    font.family: Theme.fontFamily
-                    x: 12
-                    y: (whScroll.height - height) / 2
-                }
-            }
         }
     }
 }

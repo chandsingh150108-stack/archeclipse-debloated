@@ -23,7 +23,7 @@ commands below.
 | `widgets/rightPanel/` | Right island widgets: `Calendar`, `NotificationHistory`, `SystemResources`, `Waifu`, `Media` (in `widgets/media`). |
 | `widgets/shared/` | Buttons/inputs/scroll/motion primitives + `ModelEntry.js` (model-entry accessors). |
 | `widgets/{launcher,lock,media,notifications,overview,controlPanel,wallpaperPanel,weather,welcome,selection,greeter}/` | Each is its own QML module (`qmldir`). `greeter/` ships to `/etc/xdg/quickshell/archeclipse-greeter` via `scripts/sync-greeter.sh`. |
-| `scripts/` | Python helpers (`booru.py`, `manga.py`, `wallhaven.py`, `chatbot/`), `sysmonitor.rs` (rustc-gated into `~/.cache/quickshell/binaries/`), greeter helpers. Hyprland-side scripts (`screenrecord.sh`, `screenshot.sh`) live outside this repo in `~/.config/hypr/scripts/`. |
+| `scripts/` | Python helpers (`booru.py`, `manga.py`, `chatbot/`), `sysmonitor.rs` (rustc-gated into `~/.cache/quickshell/binaries/`), greeter helpers. Hyprland-side scripts (`screenrecord.sh`, `screenshot.sh`) live outside this repo in `~/.config/hypr/scripts/`. |
 
 Modules are declared in `qmldir` files: a new QML file must be added there or
 `import qs.<module>` cannot see it. JS helpers are imported relatively

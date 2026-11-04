@@ -63,32 +63,12 @@ Singleton {
     readonly property var leftPanelWidgetNames: ["UserProfile", "Wallpapers", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !root.hiddenLeftPanelTabs.includes(n))
     // Wallpaper switcher category (persisted)
     property string wallpaperCategory: "defaults/sfw"
-    // Wallpaper provider: "local" (default/* + custom folders) or "wallhaven"; the
-    // Wallhaven filter state persists alongside it.
-    property string wallpaperProvider: "local"
-    property var wallpaperWallhaven: root.defaultWallpaperWallhaven()
-    // Shared masonry view (row count + exact tile height in px): both providers render
-    // through one AppMasonryRow and the island grows to the true height.
+    // Shared masonry view (row count + exact tile height in px) for the local grid.
     property int wallpaperMasonryRows: 2
     property int wallpaperTileSize: 120
     // Workspace-switch transition: "slide" (default) or "fade" — anything else falls back
     // to slide. The daemon keeps its own copy in its config dir; this mirrors it.
     property string wallpaperTransition: "slide"
-    // Default Wallhaven filter state (reload() merges the file over a fresh copy);
-    // categories/purity are bit-strings: general/anime/people and sfw/sketchy/nsfw.
-    function defaultWallpaperWallhaven() {
-        return {
-            q: "",
-            categories: "111",
-            purity: "100",
-            sorting: "date_added",
-            order: "desc",
-            topRange: "1M",
-            atleast: "",
-            ratios: "",
-            page: 1
-        };
-    }
     // Weather city override (empty = Auto/IP), persisted
     property string weatherCity: ""
 
@@ -253,13 +233,6 @@ Singleton {
                 },
                 key: {
                     value: "Pr5ddYN7P889AnM6nq2nhgw1"
-                }
-            },
-            // Wallhaven needs only a key (no user); empty = guest mode
-            // (SFW-only). A key unlocks sketchy/NSFW purity + user filters.
-            wallhaven: {
-                key: {
-                    value: ""
                 }
             }
         };
@@ -730,8 +703,6 @@ Singleton {
             "leftPanel.width": "leftPanelWidth",
             "leftPanel.widget": "leftPanelWidget",
             "wallpaperSwitcher.category": "wallpaperCategory",
-            "wallpaperSwitcher.provider": "wallpaperProvider",
-            "wallpaperSwitcher.wallhaven": "wallpaperWallhaven",
             "wallpaperSwitcher.masonryRows": "wallpaperMasonryRows",
             "wallpaperSwitcher.tileSize": "wallpaperTileSize",
             "wallpaperSwitcher.transition": "wallpaperTransition",
@@ -917,8 +888,6 @@ Singleton {
                 },
                 wallpaperSwitcher: {
                     category: root.wallpaperCategory,
-                    provider: root.wallpaperProvider,
-                    wallhaven: root.wallpaperWallhaven,
                     masonryRows: root.wallpaperMasonryRows,
                     tileSize: root.wallpaperTileSize,
                     transition: root.wallpaperTransition
@@ -1123,29 +1092,6 @@ Singleton {
                 root.leftPanelWidget = root.migrateLeftWidgetName((typeof _lpw === "string" ? _lpw : _lpw?.name) ?? "UserProfile");
                 const _wc = s.wallpaperSwitcher?.category;
                 root.wallpaperCategory = ((typeof _wc === "object" && _wc !== null ? _wc.value : _wc) ?? "defaults/sfw");
-                // Merge the saved wallhaven filter over fresh defaults so new params never
-                // come back undefined; bits re-validated, unknown sort -> date_added.
-                const _wp = s.wallpaperSwitcher?.provider;
-                root.wallpaperProvider = ((_wp && typeof _wp === "object" ? _wp.value : _wp) ?? "local");
-                if (root.wallpaperProvider !== "local" && root.wallpaperProvider !== "wallhaven")
-                    root.wallpaperProvider = "local";
-                const _whSaved = s.wallpaperSwitcher?.wallhaven;
-                const _wh = root.defaultWallpaperWallhaven();
-                if (_whSaved && typeof _whSaved === "object") {
-                    const pick = (v, fb) => ((v !== undefined && v !== null) ? String(v) : fb);
-                    _wh.q = pick(_whSaved.q, _wh.q);
-                    const bits = (v, fb) => (/^[01]{3}$/.test(String(v ?? "")) ? String(v) : fb);
-                    _wh.categories = bits(_whSaved.categories, _wh.categories);
-                    _wh.purity = bits(_whSaved.purity, _wh.purity);
-                    const _sortings = ["date_added", "relevance", "random", "views", "favorites", "toplist"];
-                    _wh.sorting = _sortings.includes(_whSaved.sorting) ? _whSaved.sorting : _wh.sorting;
-                    _wh.order = (_whSaved.order === "asc" ? "asc" : "desc");
-                    _wh.topRange = pick(_whSaved.topRange, _wh.topRange);
-                    _wh.atleast = pick(_whSaved.atleast, _wh.atleast);
-                    _wh.ratios = pick(_whSaved.ratios, _wh.ratios);
-                    _wh.page = Math.max(1, parseInt(_whSaved.page) || 1);
-                }
-                root.wallpaperWallhaven = _wh;
                 // Shared masonry view: plain or {value} leaves, clamped
                 // (rows 1-4, tile height 80-200px).
                 const _mr = s.wallpaperSwitcher?.masonryRows;

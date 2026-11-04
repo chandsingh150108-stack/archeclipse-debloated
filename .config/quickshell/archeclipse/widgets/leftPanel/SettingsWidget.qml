@@ -570,10 +570,6 @@ Item {
                                 {
                                     path: "openrouter.key",
                                     label: "OpenRouter API Key"
-                                },
-                                {
-                                    path: "wallhaven.key",
-                                    label: "Wallhaven Key (optional, unlocks NSFW)"
                                 }
                             ]
                             delegate: Rectangle {
@@ -1807,8 +1803,6 @@ Item {
             return "Your OpenRouter account name.";
         case "openrouter.key":
             return "Key for chatbot AI models.";
-        case "wallhaven.key":
-            return "Optional key; unlocks NSFW wallpapers.";
         default:
             return "Stored locally; used for " + label + ".";
         }

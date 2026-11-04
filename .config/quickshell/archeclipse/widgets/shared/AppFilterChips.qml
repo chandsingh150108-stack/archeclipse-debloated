@@ -1,4 +1,4 @@
-// Shared multi-toggle filter chips where any subset stays on (wallhaven Categories): model is
+// Shared multi-toggle filter chips where any subset stays on: model is
 // [string] or [{value,label,tooltip,enabled}], checkedValues caller-driven, allowEmpty guard.
 import QtQuick
 import qs.theme

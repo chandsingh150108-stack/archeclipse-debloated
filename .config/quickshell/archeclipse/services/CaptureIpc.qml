@@ -52,7 +52,6 @@ Item {
         BarState.searchMonitor = s.searchMonitor || "";
         Settings.setLeftPanelWidgetFor(s.monitor || root.monitor, s.tab);
         Settings.wallpaperCategory = s.wallpaperCategory;
-        Settings.wallpaperProvider = s.wallpaperProvider;
         Launcher.lastQuery = s.query;
         Launcher.results = s.results;
         Launcher.selectedIndex = s.index;
@@ -119,8 +118,7 @@ Item {
                 panelStates: panelStates, searchMonitor: BarState.searchMonitor,
                 shown: Object.assign({}, BarState.barShown || {}),
                 query: Launcher.lastQuery, results: Launcher.results, index: Launcher.selectedIndex,
-                wallpaperCategory: Settings.wallpaperCategory,
-                wallpaperProvider: Settings.wallpaperProvider};
+                wallpaperCategory: Settings.wallpaperCategory};
             root.monitor = mon;
             root.startedAt = Date.now();
             root.active = true;
@@ -154,7 +152,6 @@ Item {
             if (name === "wallpaper-switcher") {
                 // SFW set for the README shot: direct assignment, never updateSetting, so
                 // the detour is not persisted — restore() puts the user's values back.
-                Settings.wallpaperProvider = "local";
                 const cats = Object.keys(WallpaperService.wallpapers || {});
                 const preferred = "defaults/images_sfw";
                 const fallback = cats.find(c => c.toLowerCase().includes("sfw"));
