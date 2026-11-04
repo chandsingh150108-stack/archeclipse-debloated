@@ -40,6 +40,8 @@ Item {
     // sessions/history silently fork.
     property string cacheDir: Quickshell.env("HOME") + "/.cache/quickshell/chatbot"
     property string pythonScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/main.py"
+    // OpenCode backend: same panel contract, opencode run underneath (no terminal).
+    property string opencodeScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/main_opencode.py"
     property string sessionsScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/sessions.py"
     property string modelsScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/models.py"
     property string activeFileScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/activefile.py"
@@ -57,9 +59,10 @@ Item {
     property string renamingSessionId: ""
 
     // Tabs actually offered: hardcoded entries filtered by the live model
-    // list when known; the selected model is never hidden.
+    // list when known; agent/* backends skip that filter (they are not
+    // OpenRouter ids) and the selected model is never hidden.
     function visibleProviders() {
-        return root.providers.filter(p => root.modelCache.length === 0 || root.modelCache.indexOf(p.value) !== -1 || p.value === root.currentApiModel);
+        return root.providers.filter(p => p.value.indexOf("agent/") === 0 || root.modelCache.length === 0 || root.modelCache.indexOf(p.value) !== -1 || p.value === root.currentApiModel);
     }
 
     function loadModels() {
@@ -119,6 +122,13 @@ Item {
             value: "mistralai/ministral-8b-2512",
             icon: "M8B",
             description: "Mistral AI's Ministral 8B model, optimized for efficiency and performance",
+            imageGenerationSupport: false
+        },
+        {
+            name: "OpenCode",
+            value: "agent/opencode",
+            icon: "OC",
+            description: "Local opencode runner (plan agent, read-only) in ~/Chandd",
             imageGenerationSupport: false
         }
     ]
@@ -317,7 +327,8 @@ Item {
                 timestamp: Date.now()
             }
         ]);
-        const key = root.apiKey();
+        const isAgent = root.currentApiModel.indexOf("agent/") === 0;
+        const key = isAgent ? "agent" : root.apiKey();
         if (!key) {
             Notifications.notify({
                 summary: "ChatBot Error",
@@ -332,10 +343,20 @@ Item {
         root._stopRequested = false;
         const p = _chatAPI.createObject(root);
         p._requestId = root._requestSerial;
+        p._isAgent = isAgent;
         // Key via environment (never argv — visible in ps). Context JSON via stdin, written on
         // started (no close-stdin in Quickshell; main.py drains on a quiet-gap timeout).
-        p.command = ["python3", "-u", root.pythonScript, root.currentApiModel, text, root.activeSessionId];
-        p.environment = ({
+        // Agent backends route to their own script with their own env; the OpenRouter
+        // path below stays byte-identical.
+        if (isAgent)
+            p.command = ["python3", "-u", root.opencodeScript, root.currentApiModel, text, root.activeSessionId];
+        else
+            p.command = ["python3", "-u", root.pythonScript, root.currentApiModel, text, root.activeSessionId];
+        p.environment = isAgent ? ({
+            "OPENCODE_MODEL": Settings.chatBotOpencodeModel,
+            "OPENCODE_DIR": Settings.chatBotOpencodeDir,
+            "OPENCODE_AGENT": "plan"
+        }) : ({
             "OPENROUTER_API_KEY": key
         });
         p.stdinEnabled = true;
@@ -981,6 +1002,7 @@ Item {
         Process {
             id: proc
             property int _requestId: 0
+            property bool _isAgent: false
             stdout: StdioCollector {
                 id: _apiStdout
                 // Live tokens: text updates per chunk, not just at process end.
@@ -1050,7 +1072,9 @@ Item {
                     root.progressStatus = "error";
                     const err = _apiStderr.fullText || "Unknown error";
                     let msg = err;
-                    if (code === 2 || err.includes("HTTP 401"))
+                    if (_isAgent)
+                        msg = (err.match(/ERROR: (.+)/)?.[1] ?? err).trim() || "OpenCode request failed.";
+                    else if (code === 2 || err.includes("HTTP 401"))
                         msg = "Invalid API key. Check your OpenRouter API key in settings.";
                     else if (err.includes("HTTP 402"))
                         msg = "Insufficient credits. Add credits to your OpenRouter account.";

@@ -671,6 +671,41 @@ Item {
                                 onToggled: Settings.chatBotNotify = checked
                             }
                         }
+                        // OpenCode backend (the "OpenCode" provider tab):
+                        // model id override, empty = opencode's own default.
+                        SettingRow {
+                            text: "OpenCode model"
+                            tip: "Model id passed as opencode --model. Empty uses opencode's configured default."
+                            labelWidth: 150
+                            AppTextField {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                placeholderText: "Empty = opencode default"
+                                text: Settings.chatBotOpencodeModel
+                                onEditingFinished: {
+                                    Settings.chatBotOpencodeModel = text.trim();
+                                    text = Qt.binding(() => Settings.chatBotOpencodeModel);
+                                }
+                            }
+                        }
+                        // Fixed working directory for every panel invocation
+                        // (opencode sessions are per-project; keep them in one place).
+                        SettingRow {
+                            text: "OpenCode directory"
+                            tip: "Working directory opencode runs in from the panel."
+                            labelWidth: 150
+                            AppTextField {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                placeholderText: "~/Chandd"
+                                text: Settings.chatBotOpencodeDir
+                                onEditingFinished: {
+                                    const v = text.trim();
+                                    Settings.chatBotOpencodeDir = v !== "" ? v : Quickshell.env("HOME") + "/Chandd";
+                                    text = Qt.binding(() => Settings.chatBotOpencodeDir);
+                                }
+                            }
+                        }
                     }
 
                     // ============ HYPRLAND ============

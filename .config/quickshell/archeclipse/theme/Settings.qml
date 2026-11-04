@@ -440,6 +440,10 @@ Singleton {
     })
     // ChatBot reply notifications (default off — replies stay in the tab).
     property bool chatBotNotify: false
+    // OpenCode backend (agent/opencode provider): model override, empty =
+    // opencode's own default. Working directory is fixed, not followed-focus.
+    property string chatBotOpencodeModel: ""
+    property string chatBotOpencodeDir: Quickshell.env("HOME") + "/Chandd"
 
     // Theme variants
     property bool dynamicThemeColors: true
@@ -962,7 +966,11 @@ Singleton {
                 "chatBot": {
                     api: root.chatBotApi,
                     context: root.chatBotContext,
-                    notify: root.chatBotNotify
+                    notify: root.chatBotNotify,
+                    opencode: {
+                        model: root.chatBotOpencodeModel,
+                        dir: root.chatBotOpencodeDir
+                    }
                 },
                 "booru": {
                     api: root.booru.api,
@@ -1214,6 +1222,11 @@ Singleton {
                     file: cbCtx.file ?? true
                 });
                 root.chatBotNotify = s.chatBot?.notify ?? false;
+                // OpenCode backend settings (model empty = opencode default).
+                const cbOc = s.chatBot?.opencode ?? {};
+                root.chatBotOpencodeModel = (cbOc.model ?? "").toString().trim();
+                const cbOcDir = (cbOc.dir ?? "").toString().trim();
+                root.chatBotOpencodeDir = cbOcDir !== "" ? cbOcDir : Quickshell.env("HOME") + "/Chandd";
 
                 // Lockscreen grace period (seconds of free Esc dismiss)
                 root.lockGraceSeconds = s.lockscreen?.graceSeconds ?? 10;
@@ -1650,6 +1663,12 @@ Singleton {
             root.schedulePersist();
         }
         function onChatBotNotifyChanged() {
+            root.schedulePersist();
+        }
+        function onChatBotOpencodeModelChanged() {
+            root.schedulePersist();
+        }
+        function onChatBotOpencodeDirChanged() {
             root.schedulePersist();
         }
     }
