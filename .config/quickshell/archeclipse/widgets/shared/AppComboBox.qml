@@ -5,6 +5,11 @@ import qs.theme
 ComboBox {
     id: root
 
+    // True while the popup is hovered. Hosts inside hover-driven containers (e.g. the left
+    // island, which auto-hides on leave) OR this into their own popupHovered guard — the
+    // popup is a separate window, so container hover alone would let it close underneath.
+    readonly property bool popupHovered: bgHover.hovered || listHover.hovered
+
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSize
 
@@ -46,6 +51,9 @@ ComboBox {
             border.color: Theme.border
             border.width: 1
             radius: Theme.radius
+            HoverHandler {
+                id: bgHover
+            }
         }
         contentItem: SmoothListView {
             clip: true
@@ -53,6 +61,9 @@ ComboBox {
             model: root.popup.visible ? root.delegateModel : null
             currentIndex: root.highlightedIndex
             ScrollIndicator.vertical: ScrollIndicator {}
+            HoverHandler {
+                id: listHover
+            }
         }
     }
 

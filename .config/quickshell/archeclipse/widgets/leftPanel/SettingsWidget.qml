@@ -671,20 +671,20 @@ Item {
                                 onToggled: Settings.chatBotNotify = checked
                             }
                         }
-                        // OpenCode backend (the "OpenCode" provider tab):
-                        // model picker grouped by provider like the TUI /model.
+                        // OpenCode backend (the "OpenCode" provider tab): inline model
+                        // picker + effort combo. The model list renders inside the
+                        // panel (full-width wrapped rows + search) instead of a
+                        // Popup: long ids stay readable, and hover never leaves the
+                        // island, so the sidebar cannot close under the cursor.
                         SettingRow {
                             text: "OpenCode model"
-                            tip: "Model id passed as opencode --model, grouped by provider. Default uses opencode's configured default."
+                            tip: "Model id passed as opencode --model, grouped by provider like the TUI /model picker. Default uses opencode's configured default."
                             labelWidth: 150
-                            AppComboBox {
+                            AppButton {
                                 Layout.fillWidth: true
-                                model: root.opencodeModelOptions
-                                textRole: "name"
-                                currentIndex: Math.max(0, root.opencodeModelOptions.findIndex(o => o.value === Settings.chatBotOpencodeModel))
-                                onActivated: index => {
-                                    Settings.chatBotOpencodeModel = root.opencodeModelOptions[index].value;
-                                }
+                                text: root.opencodeModelExpanded ? root.opencodeModelShortName() + " ▲" : root.opencodeModelShortName() + " ▼"
+                                tooltipText: Settings.chatBotOpencodeModel === "" ? "opencode's configured default" : Settings.chatBotOpencodeModel
+                                onClicked: root.opencodeModelExpanded = !root.opencodeModelExpanded
                             }
                             AppButton {
                                 icon: Icons.refresh
@@ -692,12 +692,76 @@ Item {
                                 onClicked: root.refreshOpencodeModels()
                             }
                         }
+                        Item {
+                            width: parent.width
+                            height: root.opencodeModelExpanded ? 248 : 0
+                            visible: root.opencodeModelExpanded
+                            clip: true
+                            Column {
+                                anchors.fill: parent
+                                spacing: 8
+                                AppTextField {
+                                    id: modelSearch
+                                    width: parent.width
+                                    height: 30
+                                    placeholderText: "Search models…"
+                                    text: root.opencodeModelFilter
+                                    onTextChanged: root.opencodeModelFilter = text
+                                }
+                                ListView {
+                                    id: modelList
+                                    width: parent.width
+                                    height: 210
+                                    clip: true
+                                    model: root.opencodeFilteredModelOptions()
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: ScrollBar.AsNeeded
+                                    }
+                                    delegate: Rectangle {
+                                        width: modelList.width
+                                        height: Math.max(32, optLabel.implicitHeight + 12)
+                                        radius: Theme.radius
+                                        color: optMa.containsMouse ? Theme.surfaceHover : (modelData.value === Settings.chatBotOpencodeModel ? Theme.surfaceActive : "transparent")
+                                        border.width: modelData.value === Settings.chatBotOpencodeModel ? 1 : 0
+                                        border.color: Theme.accent
+                                        Text {
+                                            id: optLabel
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            verticalAlignment: Text.AlignVCenter
+                                            wrapMode: Text.WordWrap
+                                            maximumLineCount: 2
+                                            elide: Text.ElideRight
+                                            text: modelData.value === "" ? "Default (opencode default)" : modelData.name
+                                            color: modelData.value === Settings.chatBotOpencodeModel ? Theme.accent : Theme.fg
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSize - 1
+                                        }
+                                        MouseArea {
+                                            id: optMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                Settings.chatBotOpencodeModel = modelData.value;
+                                                root.opencodeModelExpanded = false;
+                                                root.opencodeModelFilter = "";
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         // Effort variant (the TUI /variants set, passed as #suffix).
+                        // Short items fit the combo; its popup hover is wired into
+                        // root.popupHovered so the island stays open while picking.
                         SettingRow {
                             text: "OpenCode effort"
                             tip: "Reasoning effort appended to the model id. Only applies when a model is selected; Default sends no suffix."
                             labelWidth: 150
                             AppComboBox {
+                                id: effortCombo
                                 Layout.fillWidth: true
                                 model: root.opencodeVariantOptions
                                 textRole: "name"
@@ -1605,6 +1669,15 @@ Item {
     // /model picker). Fetched on demand; the saved id is always kept selectable.
     property var opencodeModelIds: []
     property bool opencodeModelsLoading: false
+    // True while any combo popup is hovered: popups are separate windows, so the
+    // island's own hover goes false under them — LeftIsland checks this before
+    // auto-hiding (same contract as BooruViewer's popupHovered).
+    property bool popupHovered: effortCombo.popupHovered
+    // Inline picker state: the list renders inside the panel (full-width wrapped
+    // rows + search) instead of a Popup, which would elide long ids and whose
+    // separate window breaks the island's hover tracking.
+    property bool opencodeModelExpanded: false
+    property string opencodeModelFilter: ""
     function groupedOpencodeModelOptions() {
         const groups = {};
         for (const id of root.opencodeModelIds) {
@@ -1622,6 +1695,20 @@ Item {
         return out;
     }
     property var opencodeModelOptions: root.groupedOpencodeModelOptions()
+    function opencodeFilteredModelOptions() {
+        const q = root.opencodeModelFilter.trim().toLowerCase();
+        if (q === "")
+            return root.opencodeModelOptions;
+        return root.opencodeModelOptions.filter(o => o.value === "" || o.name.toLowerCase().indexOf(q) >= 0);
+    }
+    // Short label for the collapsed picker header (full id is the tooltip).
+    function opencodeModelShortName() {
+        const cur = Settings.chatBotOpencodeModel;
+        if (!cur)
+            return "Default";
+        const slash = cur.indexOf("/");
+        return slash >= 0 ? cur.slice(slash + 1) : cur;
+    }
     function refreshOpencodeModels() {
         if (root.opencodeModelsLoading || root.opencodeModelsProcess.running)
             return;
