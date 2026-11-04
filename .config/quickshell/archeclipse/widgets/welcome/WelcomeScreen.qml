@@ -185,9 +185,9 @@ Scope {
             description: "Sign in with a magic link to link your account. View your profile and sync shell settings between installs."
         },
         {
-            tab: "BooruViewer",
-            title: "Booru viewer",
-            description: "Search Danbooru, Gelbooru, or Safebooru with tags and browse the result grid. Open a post for details, then favorite, download, or pin it to a workspace."
+            tab: "Wallpapers",
+            title: "Wallpapers",
+            description: "Browse the wallpapers you added to ~/.config/wallpapers/custom. Click a tile to set it on the focused workspace and regenerate the palette from it."
         },
         {
             tab: "ChatBot",

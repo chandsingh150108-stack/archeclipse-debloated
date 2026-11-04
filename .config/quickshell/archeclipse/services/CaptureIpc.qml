@@ -130,7 +130,7 @@ Item {
         function select(name: string): string {
             if (!root.active) return root.reply({ok: false, error: "No capture lease"});
             const tabs = {"left-panel-settings": "SettingsWidget", "left-panel-keybinds": "KeyBinds",
-                "left-panel-chatbot": "ChatBot", "left-panel-booru-1": "BooruViewer"};
+                "left-panel-chatbot": "ChatBot", "left-panel-booru-1": "Wallpapers"};
             const states = {"app-launcher": "search", "control-panel": "control", "wallpaper-switcher": "wallpaper",
                 "workspace-overview": "overview", "right-panel-layout-1": "right", "right-panel-layout-2": "right",
                 "overview": "player"};
@@ -150,7 +150,7 @@ Item {
             root.widget = tabs[name] || "";
             root.overviewMode = (name === "overview");
             if (root.widget) Settings.setLeftPanelWidgetFor(root.monitor, root.widget);
-            if (root.overviewMode) Settings.setLeftPanelWidgetFor(root.monitor, "BooruViewer");
+            if (root.overviewMode) Settings.setLeftPanelWidgetFor(root.monitor, "Wallpapers");
             if (name === "wallpaper-switcher") {
                 // SFW set for the README shot: direct assignment, never updateSetting, so
                 // the detour is not persisted — restore() puts the user's values back.
@@ -165,7 +165,7 @@ Item {
             BarState.activate(root.desiredState, 0, root.monitor);
             if (root.overviewMode) {
                 // ArchEclipse Overview hero: player island on the main pill
-                // plus both side pills (BooruViewer left, default right).
+                // plus both side pills (Wallpapers left, default right).
                 BarState.activate("left", 0, root.monitor);
                 BarState.activate("right", 0, root.monitor);
             }
@@ -201,19 +201,16 @@ Item {
                     const item = island.activeWidget;
                     ready = !item.loading && item.totalBinds > 0 && item.revealOpacity >= 1;
                 }
-                if (ready && root.widget === "BooruViewer") {
-                    const item = island.activeWidget;
-                    ready = item.progressStatus !== "loading" && item.progressStatus !== "error";
+                if (ready && root.widget === "Wallpapers") {
+                    // Local scan only: nothing async to wait for, the grid paints
+                    // from the cached WallpaperService data.
+                    ready = ready && !!island.activeWidget;
                 }
             }
             if (root.overviewMode) {
                 const island = Registry.get("left-island-" + root.monitor);
                 ready = ready && BarState.isOpenFor("left", root.monitor) && BarState.isOpenFor("right", root.monitor);
-                ready = ready && !!island && island.selectedWidget === "BooruViewer" && !!island.activeWidget;
-                if (ready) {
-                    const item = island.activeWidget;
-                    ready = item.progressStatus !== "loading" && item.progressStatus !== "error";
-                }
+                ready = ready && !!island && island.selectedWidget === "Wallpapers" && !!island.activeWidget;
             }
             if (root.desiredState === "wallpaper") ready = ready && images.wallpaperFound && images.errors === 0;
             if (root.desiredState === "search") ready = ready && Launcher.results.length > 0;

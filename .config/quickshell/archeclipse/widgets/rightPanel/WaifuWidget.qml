@@ -190,12 +190,12 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Theme.spacing
                 AppButton {
-                    text: "Open Booru Viewer"
-                    tooltipText: "Open Booru Viewer in the left panel"
+                    text: "Open Wallpapers"
+                    tooltipText: "Open the Wallpapers tab in the left panel"
                     onClicked: {
-                        // Show the left island + set its widget to BooruViewer:
+                        // Show the left island + switch it to the wallpaper grid:
                         // Registry.selectLeftTab does both (never toggles it off when visible).
-                        Registry.selectLeftTab("BooruViewer", undefined, root.monitorName);
+                        Registry.selectLeftTab("Wallpapers", undefined, root.monitorName);
                     }
                 }
                 AppButton {

@@ -497,7 +497,6 @@ Item {
 
                         Repeater {
                             model: [
-                                { key: "booru", label: "Booru" },
                                 { key: "mangaDex", label: "MangaDex" },
                                 { key: "mangaLib", label: "MangaLib" },
                                 { key: "waifu", label: "Waifu" },
@@ -571,30 +570,6 @@ Item {
                                 {
                                     path: "openrouter.key",
                                     label: "OpenRouter API Key"
-                                },
-                                {
-                                    path: "danbooru.user",
-                                    label: "Danbooru User"
-                                },
-                                {
-                                    path: "danbooru.key",
-                                    label: "Danbooru Key"
-                                },
-                                {
-                                    path: "gelbooru.user",
-                                    label: "Gelbooru User"
-                                },
-                                {
-                                    path: "gelbooru.key",
-                                    label: "Gelbooru Key"
-                                },
-                                {
-                                    path: "safebooru.user",
-                                    label: "Safebooru User"
-                                },
-                                {
-                                    path: "safebooru.key",
-                                    label: "Safebooru Key"
                                 },
                                 {
                                     path: "wallhaven.key",
@@ -1629,18 +1604,6 @@ Item {
             return "Your OpenRouter account name.";
         case "openrouter.key":
             return "Key for chatbot AI models.";
-        case "danbooru.user":
-            return "Your Danbooru login name.";
-        case "danbooru.key":
-            return "Key for Danbooru favorites and uploads.";
-        case "gelbooru.user":
-            return "Your Gelbooru login name.";
-        case "gelbooru.key":
-            return "Key for Gelbooru favorites.";
-        case "safebooru.user":
-            return "Your Safebooru login name.";
-        case "safebooru.key":
-            return "Key for Safebooru favorites.";
         case "wallhaven.key":
             return "Optional key; unlocks NSFW wallpapers.";
         default:

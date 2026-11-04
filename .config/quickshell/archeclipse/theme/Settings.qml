@@ -60,7 +60,7 @@ Singleton {
     // the IPC validator and the welcome tour all filter by this list). Delete a
     // name here to bring that tab back — no other edit needed.
     readonly property var hiddenLeftPanelTabs: ["MangaViewer", "Donations"]
-    readonly property var leftPanelWidgetNames: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !root.hiddenLeftPanelTabs.includes(n))
+    readonly property var leftPanelWidgetNames: ["UserProfile", "Wallpapers", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !root.hiddenLeftPanelTabs.includes(n))
     // Wallpaper switcher category (persisted)
     property string wallpaperCategory: "defaults/sfw"
     // Wallpaper provider: "local" (default/* + custom folders) or "wallhaven"; the
@@ -580,10 +580,16 @@ Singleton {
         return override === undefined ? fallback : !!override;
     }
 
+    // The left tab formerly called BooruViewer is now Wallpapers; keep saved
+    // selections working across the rename instead of resetting them.
+    function migrateLeftWidgetName(name) {
+        return String(name) === "BooruViewer" ? "Wallpapers" : String(name);
+    }
+
     function leftPanelWidgetFor(monitorName) {
         const name = String(monitorName || "");
         const override = name !== "" ? root.leftPanelByMonitor[name]?.widget : undefined;
-        const widget = override === undefined ? root.leftPanelWidget : String(override);
+        const widget = root.migrateLeftWidgetName(override === undefined ? root.leftPanelWidget : String(override));
         // A hidden tab saved from before the filter would otherwise render content
         // the rail no longer shows; never resurrect it.
         return root.leftPanelWidgetNames.includes(widget) ? widget : "UserProfile";
@@ -680,7 +686,7 @@ Singleton {
             if (side === "left" && entry.widget !== undefined) {
                 const rawWidget = entry.widget && typeof entry.widget === "object"
                     ? (entry.widget.name ?? entry.widget.value) : entry.widget;
-                const widget = String(rawWidget ?? "");
+                const widget = root.migrateLeftWidgetName(rawWidget ?? "");
                 if (root.leftPanelWidgetNames.includes(widget))
                     clean.widget = widget;
             }
@@ -1103,7 +1109,7 @@ Singleton {
                 // The file may store {name, icon}; only {name} is persisted and restored —
                 // left icons live in LeftIsland (legacy files used "leftPanel.widget").
                 const _lpw = s["leftPanel.widget"] ?? s.leftPanel?.widget;
-                root.leftPanelWidget = (typeof _lpw === "string" ? _lpw : _lpw?.name) ?? "UserProfile";
+                root.leftPanelWidget = root.migrateLeftWidgetName((typeof _lpw === "string" ? _lpw : _lpw?.name) ?? "UserProfile");
                 const _wc = s.wallpaperSwitcher?.category;
                 root.wallpaperCategory = ((typeof _wc === "object" && _wc !== null ? _wc.value : _wc) ?? "defaults/sfw");
                 // Merge the saved wallhaven filter over fresh defaults so new params never

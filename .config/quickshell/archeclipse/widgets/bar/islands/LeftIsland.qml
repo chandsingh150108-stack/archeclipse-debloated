@@ -32,7 +32,7 @@ Item {
     property real expand: 0
     // Tab-name order for the rail index mapping; names keep the QS "Widget" suffix for IPC
     // showWidget/widgetState compat.
-    readonly property var tabOrder: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !Settings.hiddenLeftPanelTabs.includes(n))
+    readonly property var tabOrder: ["UserProfile", "Wallpapers", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !Settings.hiddenLeftPanelTabs.includes(n))
     function tabIndex(name) {
         return Math.max(0, root.tabOrder.indexOf(name));
     }
@@ -105,7 +105,7 @@ Item {
         case 0:
             return userProfileLoader.item;
         case 1:
-            return booruLoader.item;
+            return wallpapersLoader.item;
         case 2:
             return chatBotLoader.item;
         case 3:
@@ -121,28 +121,6 @@ Item {
         default:
             return null;
         }
-    }
-
-    // Direct access to the booru viewer instance (null until primed).
-    readonly property var booruView: booruLoader.item
-    // Post waiting for the booru Loader: openDialog lands here when a
-    // caller (e.g. waifu) floats a dialog before first instantiation.
-    property var _pendingDialogImage: null
-
-    // Opens a post in the floating detail window without opening the island. Primes the Booru
-    // tab; if the viewer isn't instantiated this tick the post parks in _pendingDialogImage.
-    function openBooruDialog(img) {
-        if (!img)
-            return false;
-        root.primeTab("BooruViewer");
-        const v = root.booruView;
-        if (v && typeof v.openDialog === "function" && typeof v.detachDialog === "function") {
-            v.openDialog(img, null);
-            v.detachDialog();
-        } else {
-            root._pendingDialogImage = img;
-        }
-        return true;
     }
 
     // Build a tab's Loader without switching to it or opening the island
@@ -235,7 +213,7 @@ Item {
                     anchors.right: parent.right
                     anchors.margins: Theme.pad
                     highlightedName: BarState.tourHighlightMonitor === root.monitorName ? BarState.tourHighlightTab : ""
-                    // Tab order + icons: UserProfile, BooruViewer, ChatBot, MangaViewer,
+                    // Tab order + icons: UserProfile, Wallpapers, ChatBot, MangaViewer,
                     // Settings, CustomScripts, KeyBinds, Donations ("Widget" suffix for IPC).
                     model: [
                         {
@@ -243,7 +221,7 @@ Item {
                             icon: Icons.user
                         },
                         {
-                            name: "BooruViewer",
+                            name: "Wallpapers",
                             icon: Icons.image
                         },
                         {
@@ -312,7 +290,7 @@ Item {
                         switch (root.selectedWidget) {
                         case "UserProfile":
                             return 0;
-                        case "BooruViewer":
+                        case "Wallpapers":
                             return 1;
                         case "ChatBot":
                             return 2;
@@ -338,28 +316,13 @@ Item {
                         Layout.fillHeight: true
                     }
                     Loader {
-                        id: booruLoader
-                        active: root.tabPrimed("BooruViewer")
-                        sourceComponent: booruComp
-                        // 1-2k-line tab: parse off the UI thread (first click hitch).
+                        id: wallpapersLoader
+                        active: root.tabPrimed("Wallpapers")
+                        sourceComponent: wallpapersComp
+                        // Parse off the UI thread (first click hitch).
                         asynchronous: true
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        onLoaded: {
-                            // Back-reference for popup-unhover hides; bind hostScreen reactively off
-                            // hostPanel.screen — a one-shot assign runs before the bar sets it.
-                            if (item) {
-                                item.hostPanel = root;
-                                // Flush a dialog parked by openBooruDialog
-                                // while this Loader was instantiating.
-                                if (root._pendingDialogImage) {
-                                    const p = root._pendingDialogImage;
-                                    root._pendingDialogImage = null;
-                                    item.openDialog(p, null);
-                                    item.detachDialog();
-                                }
-                            }
-                        }
                     }
                     Loader {
                         id: chatBotLoader
@@ -414,8 +377,10 @@ Item {
                     }
                 }
                 Component {
-                    id: booruComp
-                    BooruViewer {}
+                    id: wallpapersComp
+                    WallpapersViewer {
+                        monitorName: root.monitorName
+                    }
                 }
                 Component {
                     id: chatBotComp
