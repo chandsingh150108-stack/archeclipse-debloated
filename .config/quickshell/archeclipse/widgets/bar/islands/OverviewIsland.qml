@@ -40,12 +40,11 @@ Item {
         }
     }
 
-    // Hover-leave close (delay via the IslandHoverPin default) + Esc. No creation arm: it stays
-    // open until first hovered-out, toggled or Escaped.
+    // Hover-leave close (delay via the IslandHoverPin default) + Esc. Creation arms the
+    // 3s open-grace, so a shortcut-opened overview that is never touched still closes.
     IslandHoverPin {
         stateName: "overview"
         monitorName: root.monitorName
-        armOnCreation: false
     }
     IslandEscClose {
         states: ["overview"]

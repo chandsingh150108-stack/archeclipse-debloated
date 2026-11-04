@@ -61,7 +61,8 @@ HoverHandler {
     }
     // Arm at creation too (unless opted out): without a hover transition the island would stay
     // open forever. The first arm grants the open-grace regardless of leaveDelay.
-    property int openGrace: 1000
+    // Open-grace is 3s: a shortcut-opened popup that is never touched must not linger.
+    property int openGrace: 3000
     Component.onCompleted: {
         if (!root.armOnCreation)
             return;

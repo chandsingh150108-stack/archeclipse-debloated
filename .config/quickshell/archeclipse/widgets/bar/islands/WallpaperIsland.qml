@@ -42,6 +42,25 @@ Column {
         monitorName: root.monitorName
     }
 
+    // Shortcut-opened switcher closes 3s after last use. The island is primed at
+    // boot and kept alive, so the creation arm would fire only once — re-arm on
+    // every open instead. Combos open popups (separate windows): while one is up
+    // the island is not hovered, so an open body combo holds the grace.
+    IslandHoverPin {
+        id: hoverPin
+        stateName: "wallpaper"
+        monitorName: root.monitorName
+        armOnCreation: false
+        holdOpen: body.comboPopupOpen
+    }
+    Connections {
+        target: BarState
+        function onPanelStatesByMonitorChanged() {
+            if (BarState.isOpenFor("wallpaper", root.monitorName))
+                hoverPin.arm();
+        }
+    }
+
     IslandExpandClip {
         expand: root.expand
         contentHeight: body.height

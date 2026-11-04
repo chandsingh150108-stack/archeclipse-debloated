@@ -144,6 +144,9 @@ Item {
                 // the panel while it is being used.
                 BarState.activate("left", 0, root.monitorName);
             } else {
+                // Post-hover leaves use the fast delay; the 3s grace only
+                // applies to the untouched just-opened panel.
+                leaveTimer.interval = Settings.revealOutPressure;
                 root.requestAutoHide();
             }
         }
@@ -161,8 +164,10 @@ Item {
     }
     // Called by the bar owner on every (re)open: the island survives closes, so a leaveTimer
     // armed before the last close must not shut the fresh session after the reveal-out delay.
+    // Instead arm the 3s open-grace: a shortcut-opened panel that is never touched closes.
     function cancelPendingHide() {
-        leaveTimer.stop();
+        leaveTimer.interval = 3000;
+        leaveTimer.restart();
     }
     Timer {
         id: leaveTimer
@@ -170,6 +175,8 @@ Item {
         onTriggered: {
             if (!BarState.tourHoldFor(root.monitorName) && !Settings.panelLockFor("left", root.monitorName) && !islandHover.hovered && !(root.activeWidget && root.activeWidget.popupHovered))
                 BarState.deactivate("left", root.monitorName);
+            else if (islandHover.hovered || (root.activeWidget && root.activeWidget.popupHovered))
+                leaveTimer.restart();
         }
     }
 

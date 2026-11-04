@@ -120,4 +120,12 @@ Column {
             monitorName: root.monitorName
         }
     }
+
+    // Shortcut-opened search closes 3s after last use: typing/focus holds it,
+    // leaving or idling lets the grace expire.
+    IslandHoverPin {
+        stateName: "search"
+        monitorName: root.monitorName
+        holdOpen: input.activeFocus
+    }
 }
