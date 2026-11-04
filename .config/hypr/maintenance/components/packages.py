@@ -71,10 +71,8 @@ PACKAGES: list[str] = [
     "coloreclipse-git",
     "zenity",
     # Themes and UI enhancements
-    # Login: greetd hosts the quickshell greeter (Hyprland-minimal
-    # compositor: cage lacks layer-shell, which PanelWindow requires)
-    "greetd",
-    # sync-greeter.sh mirrors the login theme with rsync -aL
+    # Login: ly is the display manager (ly@tty1)
+    "ly",
     "rsync",
     "fastfetch",
     "starship",
@@ -110,7 +108,7 @@ PROTECTED_PACKAGES = {
     "bluez": "Bluetooth protocol stack",
     "bluez-utils": "Bluetooth command-line utilities",
     "gvfs": "virtual file system backend for file managers",
-    "greetd": "the display manager",
+    "ly": "the display manager",
     "starship": "the current shell configuration",
 }
 

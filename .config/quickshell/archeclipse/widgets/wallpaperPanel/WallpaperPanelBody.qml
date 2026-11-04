@@ -9,7 +9,7 @@ import qs.theme
 import qs.services
 import qs.widgets.shared
 
-// Pick a wallpaper per workspace or the greeter background, browse/add/delete; hosted by
+// Pick a wallpaper per workspace, browse/add/delete; hosted by
 // WallpaperIsland in the main pill. Previews render the original files, no thumbnails.
 Item {
     id: root
@@ -41,25 +41,7 @@ Item {
 
     // ---------------------------------------------------------------- state
 
-    readonly property var targetTypes: ["workspace", "greeter"]
-    property string targetType: "workspace"
     property int selectedWorkspaceId: 1
-    // Fixed filename the greeter reads, overwritten in place on every set — so the tile loads
-    // it cache:false and reloads explicitly, never a cached static source.
-    readonly property string greeterPath: "/etc/xdg/quickshell/archeclipse-greeter/greeter-wallpaper"
-    readonly property string greeterThemePath: "/etc/xdg/quickshell/archeclipse-greeter/colors.scss"
-    readonly property string greeterThemeCache: root.home + "/.cache/archeclipse-greeter-theme"
-    readonly property string greeterThemeConfig: root.home + "/.config/quickshell/archeclipse-greeter/greeter-theme-config"
-    readonly property string greeterPaletteNormalizer: root.home + "/.config/quickshell/archeclipse/scripts/normalize-greeter-palette.py"
-    readonly property string greeterSource: "file://" + root.greeterPath
-    property string _pendingGreeterThemePath: ""
-    property string _greeterThemeWallpaper: ""
-    // Re-read the greeter file from disk (same-URL assignments don't
-    // reload, so clear first and restore deferred past the cancel).
-    function refreshGreeterTile() {
-        greeterImg.source = "";
-        Qt.callLater(() => greeterImg.source = root.greeterSource);
-    }
 
     // Phased progress label (no spinner): searching/downloading/setting/deleting/adding and so
     // on; success and error auto-reset to idle after 1.5s.
@@ -215,7 +197,6 @@ Item {
     function refresh() {
         WallpaperService.refresh();
         fetchCurrentWallpapers();
-        root.refreshGreeterTile();
     }
 
     // Re-fetch when the real monitor name arrives (onLoaded is after onCompleted). Restart, not
@@ -325,47 +306,22 @@ Item {
         onExited: code => {
             if (code === 0) {
                 root.fetchCurrentWallpapers();
-                // The greeter path is overwritten in place: re-read it so
-                // the indicator tile shows the wallpaper just installed.
-                if (root._pendingTarget === "greeter")
-                    root.refreshGreeterTile();
-                const target = root._pendingTarget;
-                root._pendingTarget = "";
-                if (target === "greeter") {
-                    const wallpaper = root._pendingGreeterThemePath;
-                    root._pendingGreeterThemePath = "";
-                    root.regenGreeterTheme(wallpaper);
-                    return;
-                }
                 // Share the global theme: regenerate cwal colors from the wallpaper (coloreclipse
-                // wal honors autocolor), only for a workspace target with dynamicThemeColors.
+                // wal honors autocolor), only with dynamicThemeColors on.
                 if (root._pendingThemeRegen !== "")
                     root.regenTheme(root._pendingThemeRegen);
                 else
                     root.setProgress("success");
             } else {
                 root._pendingThemeRegen = "";
-                root._pendingTarget = "";
-                root._pendingGreeterThemePath = "";
                 root.setProgress("error");
             }
         }
     }
 
-    // Single-quote a shell arg (wallpaper dirs contain spaces/apostrophes).
-    function shq(s) {
-        return "'" + String(s).replace(/'/g, "'\\''") + "'";
-    }
-    function commandFor(target, path) {
-        switch (target) {
-        case "greeter":
-            // Fixed filename the greeter reads (Ready-gated Image): copy + world-read bit via
-            // pkexec since the mirror is root-managed; excluded from sync --delete.
-            return ["pkexec", "bash", "-c", `cp ${shq(path)} /etc/xdg/quickshell/archeclipse-greeter/greeter-wallpaper && chmod a+r /etc/xdg/quickshell/archeclipse-greeter/greeter-wallpaper`];
-        default:
-            // workspace (WallEclipse arg order: set <monitor> <ws> <path>)
-            return [root.walleclipseBin, "set", root.effectiveMonitor, String(root.selectedWorkspaceId), path];
-        }
+    function commandFor(path) {
+        // workspace (WallEclipse arg order: set <monitor> <ws> <path>)
+        return [root.walleclipseBin, "set", root.effectiveMonitor, String(root.selectedWorkspaceId), path];
     }
 
     function applyWallpaper(path) {
@@ -377,10 +333,8 @@ Item {
         // leaves no frame of stale preview over the incoming wallpaper.
         root.clearPreview();
         setProgress("setting");
-        root._pendingTarget = root.targetType;
-        root._pendingThemeRegen = (root.targetType === "workspace" && Settings.dynamicThemeColors) ? path : "";
-        root._pendingGreeterThemePath = root.targetType === "greeter" ? String(path) : "";
-        setProc.command = commandFor(root.targetType, path);
+        root._pendingThemeRegen = Settings.dynamicThemeColors ? path : "";
+        setProc.command = commandFor(path);
         setProc.running = true;
     }
 
@@ -487,7 +441,6 @@ Item {
 
     // ---- global theme sharing (coloreclipse wal -> cwal colors.scss -> Theme) ----
     property string _pendingThemeRegen: ""
-    property string _pendingTarget: ""
     Process {
         id: themeProc
         onExited: code => {
@@ -506,46 +459,6 @@ Item {
         themeProc.running = true;
     }
 
-    Process {
-        id: greeterThemeProc
-        onExited: code => {
-            if (code === 0) {
-                greeterPaletteNormalizeProc.command = ["python3", root.greeterPaletteNormalizer, root._greeterThemeWallpaper, root.greeterThemeCache + "/coloreclipse/colors.scss"];
-                greeterPaletteNormalizeProc.running = true;
-            } else {
-                root.notifyError("generating greeter theme", "coloreclipse wal failed (exit " + code + ")");
-            }
-        }
-    }
-    Process {
-        id: greeterPaletteNormalizeProc
-        onExited: code => {
-            if (code === 0) {
-                greeterPaletteInstallProc.command = ["pkexec", "install", "-m", "0644", root.greeterThemeCache + "/coloreclipse/colors.scss", root.greeterThemePath];
-                greeterPaletteInstallProc.running = true;
-            } else {
-                root.notifyError("normalizing greeter theme", "could not match the palette to the wallpaper (exit " + code + ")");
-            }
-        }
-    }
-    Process {
-        id: greeterPaletteInstallProc
-        onExited: code => {
-            if (code === 0)
-                root.setProgress("success");
-            else
-                root.notifyError("installing greeter theme", "could not update the greeter palette (exit " + code + ")");
-        }
-    }
-    function regenGreeterTheme(path) {
-        if (!path) {
-            root.notifyError("generating greeter theme", "no wallpaper path was provided");
-            return;
-        }
-        root._greeterThemeWallpaper = String(path);
-        greeterThemeProc.command = ["env", "XDG_CONFIG_HOME=" + root.greeterThemeConfig, "XDG_CACHE_HOME=" + root.greeterThemeCache, "coloreclipse", "wal", path];
-        greeterThemeProc.running = true;
-    }
 
     function setRandomWallpaper() {
         const list = root.selectedWallpapers;
@@ -756,69 +669,15 @@ Item {
             spacing: Theme.spacing
 
             // per-workspace current wallpaper strip — tiles scroll so 11+ workspaces glide
-            // instead of overflowing; greeter + separator stay fixed outside the flickable.
+            // instead of overflowing.
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
                 spacing: Theme.spacing
-                // Greeter (login) wallpaper indicator — first tile, lock in center.
-                Rectangle {
-                    id: greeterTile
-                    width: 100
-                    height: 66
-                    radius: Theme.radius
-                    color: Theme.onMediaBg
-                    border.width: root.targetType === "greeter" ? 2 : 0
-                    border.color: Theme.accent
-
-                    AppImage {
-                        id: greeterImg
-                        anchors.fill: parent
-                        anchors.margins: 2
-                        cache: false
-                        source: root.greeterSource
-                        sourceWidth: greeterTile.width
-                    }
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: 28
-                        height: 28
-                        radius: width / 2
-                        color: Theme.muted
-                        opacity: Theme.opacity.soft
-                        Text {
-                            anchors.centerIn: parent
-                            text: Icons.lock
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeLarge
-                            color: Theme.onMediaInk
-                        }
-                    }
-                    MouseArea {
-                        id: greeterMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.targetType = "greeter"
-                    }
-                    AppTooltip {
-                        visible: greeterMa.containsMouse
-                        delay: 400
-                        text: "Greeter wallpaper.\nClick to target greeter."
-                    }
-                }
-                // Separator between the greeter tile and the workspace tiles.
-                Rectangle {
-                    Layout.preferredWidth: 2
-                    Layout.preferredHeight: 48
-                    Layout.alignment: Qt.AlignVCenter
-                    color: Theme.border
-                }
                 // Workspace tiles only — the scrollable part.
                 SmoothFlickable {
                     id: wsStripScroll
                     // Content-sized when narrow (group stays centered), capped at the leftover
-                    // island width when wide (greeter 100 + separator 2 + 2x spacing 10).
+                    // island width when wide.
                     Layout.preferredWidth: Math.max(0, Math.min(wsStripRow.width, mainCol.width - 122))
                     Layout.preferredHeight: 66
                     flickableDirection: Flickable.HorizontalFlick
@@ -899,14 +758,6 @@ Item {
                     id: actionBar
                     anchors.centerIn: parent
                     spacing: Theme.spacing
-
-                    AppSegmentedControl {
-                        model: root.targetTypes
-                        currentIndex: root.targetTypes.indexOf(root.targetType)
-                        cellHPadding: 8
-                        cellVPadding: 4
-                        onActivated: (i, v) => root.targetType = v
-                    }
 
                     // Workspace-switch transition: slide (default) or fade, persisted daemon-side
                     // and followed by a reload so it applies with a fade right away.
@@ -1156,7 +1007,7 @@ Item {
                         AppTooltip {
                             visible: tileMa.containsMouse && !wallScroll.moving
                             delay: 400
-                            text: `Click to set as ${root.targetType} wallpaper.\nRight-click to delete.\n${(tile.modelData !== undefined && root.isAnimatedPreviewFile(tile.modelData)) ? "Hover to preview.\n" : ""}${tile.fileName}\nSize: ${root.formatBytes(root.getFileSize(tile.modelData ?? ""))}`
+                            text: `Click to set as workspace wallpaper.\nRight-click to delete.\n${(tile.modelData !== undefined && root.isAnimatedPreviewFile(tile.modelData)) ? "Hover to preview.\n" : ""}${tile.fileName}\nSize: ${root.formatBytes(root.getFileSize(tile.modelData ?? ""))}`
                         }
 
                         MouseArea {

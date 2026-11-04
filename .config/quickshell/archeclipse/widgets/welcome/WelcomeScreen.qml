@@ -915,7 +915,7 @@ Scope {
                         // 4 — wallpaper
                         LiveStep {
                             title: "Wallpaper switcher"
-                            text: "Choose static or video wallpapers (MP4, WebM, MKV, MOV) per workspace. Select the lock tile to set a picture for the custom ArcheEclipse Greeter on greetd; the image is copied to its system directory, while sync-greeter.sh mirrors the greeter files with rsync."
+                            text: "Choose static or video wallpapers (MP4, WebM, MKV, MOV) per workspace."
                             keys: ["SUPER", "W"]
                             active: root.stepActive(4)
                             onToggleRequested: root.stepToggle(4)

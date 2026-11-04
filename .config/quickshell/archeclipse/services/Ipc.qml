@@ -547,7 +547,7 @@ Item {
                 if (query === "selected") return "selected=" + w.selectedCategory;
                 if (query === "count") return "count=" + (w.selectedWallpapers || []).length;
                 if (query === "current") return "current=" + (w.currentWallpapers || []).length;
-                if (query === "target") return "target=" + w.targetType + " ws=" + w.selectedWorkspaceId;
+                if (query === "target") return "target=workspace ws=" + w.selectedWorkspaceId;
                 if (query === "progress") return "progress=" + w.progressStatus + " label=" + w.progressText;
                 if (query === "provider") return "provider=local";
                 if (query === "view") return "rows=" + Settings.wallpaperMasonryRows + " size=" + Settings.wallpaperTileSize;

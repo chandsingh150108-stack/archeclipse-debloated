@@ -212,11 +212,6 @@ def main() -> None:
                 "packages", package_description, default_choice="y"
             ),
             presentation.PlannedStep(
-                "archeclipse_greeter",
-                "Archeclipse greeter",
-                default_choice="n",
-            ),
-            presentation.PlannedStep(
                 "plugins",
                 "Updating plugins",
                 # hyprpm on this install cannot write its plugin state, and the
@@ -245,16 +240,6 @@ def main() -> None:
 
     print("Deploying config files")
     update_repo(repo_dir, branch)
-
-    # Greeter loads lazily on purpose: this script can run fetched-remote
-    # against an older local tree (zshrc archeclipse() flow). Eagerly
-    # importing components.greeter up in load_components() would die with
-    # ModuleNotFoundError before deploying anything on such skew.
-    try:
-        modules["greeter"] = importlib.import_module("components.greeter")
-    except ModuleNotFoundError:
-        print("Greeter component not in local tree — skipping that step.")
-        plan["archeclipse_greeter"] = False
 
     try:
         services = importlib.import_module("components.services")
@@ -301,14 +286,6 @@ def main() -> None:
             lambda: modules["packages"].install_packages(aur_helper),
             run=False,
         )
-
-    presentation.print_section_header("ARCHECLIPSE GREETER")
-    presentation.execute_planned_step(
-        "*",
-        "Archeclipse greeter",
-        modules["greeter"].configure_greeter,
-        run=plan["archeclipse_greeter"],
-    )
 
     presentation.print_section_header("PLUGINS")
     presentation.execute_planned_step(

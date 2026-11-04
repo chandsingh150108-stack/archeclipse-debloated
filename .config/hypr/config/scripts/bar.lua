@@ -77,9 +77,6 @@ local function launch()
     local launch_command = "MANGOHUD=0 nohup qs -n -p " .. quote(qs_config)
         .. " > " .. quote(log_file) .. " 2>&1 &"
     run(launch_command)
-
-    local greeter_sync = home .. "/.config/quickshell/archeclipse/scripts/sync-greeter.sh"
-    run(quote(greeter_sync) .. " >/dev/null 2>&1")
 end
 
 function M.run(...)
