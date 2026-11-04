@@ -165,6 +165,12 @@ def main() -> None:
         _fail(f"ERROR: OpenCode directory does not exist: {workdir}", 1)
     agent = os.environ.get("OPENCODE_AGENT", "").strip() or "plan"
     model_override = os.environ.get("OPENCODE_MODEL", "").strip()
+    variant = os.environ.get("OPENCODE_VARIANT", "").strip().lstrip("#")
+    if model_override and variant:
+        # Same id format as --model provider/model#variant / the TUI /variants.
+        model_override += "#" + variant
+    # A variant with no explicit model has no id to attach to: opencode's own
+    # default applies instead.
 
     opencode = find_opencode()
     cmd = [opencode, "run", "--format", "json", "--agent", agent]

@@ -672,19 +672,38 @@ Item {
                             }
                         }
                         // OpenCode backend (the "OpenCode" provider tab):
-                        // model id override, empty = opencode's own default.
+                        // model picker grouped by provider like the TUI /model.
                         SettingRow {
                             text: "OpenCode model"
-                            tip: "Model id passed as opencode --model. Empty uses opencode's configured default."
+                            tip: "Model id passed as opencode --model, grouped by provider. Default uses opencode's configured default."
                             labelWidth: 150
-                            AppTextField {
+                            AppComboBox {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 30
-                                placeholderText: "Empty = opencode default"
-                                text: Settings.chatBotOpencodeModel
-                                onEditingFinished: {
-                                    Settings.chatBotOpencodeModel = text.trim();
-                                    text = Qt.binding(() => Settings.chatBotOpencodeModel);
+                                model: root.opencodeModelOptions
+                                textRole: "name"
+                                currentIndex: Math.max(0, root.opencodeModelOptions.findIndex(o => o.value === Settings.chatBotOpencodeModel))
+                                onActivated: index => {
+                                    Settings.chatBotOpencodeModel = root.opencodeModelOptions[index].value;
+                                }
+                            }
+                            AppButton {
+                                icon: Icons.refresh
+                                tooltipText: root.opencodeModelsLoading ? "Loading models…" : "Refresh model list (`opencode models`)"
+                                onClicked: root.refreshOpencodeModels()
+                            }
+                        }
+                        // Effort variant (the TUI /variants set, passed as #suffix).
+                        SettingRow {
+                            text: "OpenCode effort"
+                            tip: "Reasoning effort appended to the model id. Only applies when a model is selected; Default sends no suffix."
+                            labelWidth: 150
+                            AppComboBox {
+                                Layout.fillWidth: true
+                                model: root.opencodeVariantOptions
+                                textRole: "name"
+                                currentIndex: Math.max(0, root.opencodeVariantOptions.findIndex(o => o.value === Settings.chatBotOpencodeVariant))
+                                onActivated: index => {
+                                    Settings.chatBotOpencodeVariant = root.opencodeVariantOptions[index].value;
                                 }
                             }
                         }
@@ -1582,10 +1601,69 @@ Item {
         }
     }
 
+    // OpenCode model list (`opencode models`, grouped by provider like the TUI
+    // /model picker). Fetched on demand; the saved id is always kept selectable.
+    property var opencodeModelIds: []
+    property bool opencodeModelsLoading: false
+    function groupedOpencodeModelOptions() {
+        const groups = {};
+        for (const id of root.opencodeModelIds) {
+            const slash = String(id).indexOf("/");
+            const provider = slash >= 0 ? String(id).slice(0, slash) : "other";
+            (groups[provider] = groups[provider] || []).push(String(id));
+        }
+        const out = [{ name: "Default (opencode default)", value: "" }];
+        for (const provider of Object.keys(groups).sort())
+            for (const id of groups[provider].sort())
+                out.push({ name: id, value: id });
+        const current = Settings.chatBotOpencodeModel;
+        if (current && !out.some(o => o.value === current))
+            out.splice(1, 0, { name: current + " (custom)", value: current });
+        return out;
+    }
+    property var opencodeModelOptions: root.groupedOpencodeModelOptions()
+    function refreshOpencodeModels() {
+        if (root.opencodeModelsLoading || root.opencodeModelsProcess.running)
+            return;
+        root.opencodeModelsLoading = true;
+        root.opencodeModelsProcess.running = true;
+    }
+    property Process opencodeModelsProcess: Process {
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot/opencode_models.py"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.opencodeModelsLoading = false;
+                try {
+                    const ids = JSON.parse(text);
+                    if (Array.isArray(ids))
+                        root.opencodeModelIds = ids;
+                } catch (e) {
+                    // Keep the previous list on corrupt output.
+                }
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: root.opencodeModelsLoading = false
+        }
+    }
+    // Effort variants (the TUI /variants set, appended as #suffix). Union of the
+    // documented built-ins: Anthropic high/max, OpenAI none..xhigh, Google low/high.
+    readonly property var opencodeVariantOptions: [
+        { name: "Default", value: "" },
+        { name: "none", value: "none" },
+        { name: "minimal", value: "minimal" },
+        { name: "low", value: "low" },
+        { name: "medium", value: "medium" },
+        { name: "high", value: "high" },
+        { name: "xhigh", value: "xhigh" },
+        { name: "max", value: "max" }
+    ]
+
     Component.onCompleted: {
         root.recorderInfoProcess.running = true;
         root.audioDevicesProcess.running = true;
         root.recorderHelpProcess.running = true;
+        root.refreshOpencodeModels();
         if (visible)
             root.playReveal();
     }

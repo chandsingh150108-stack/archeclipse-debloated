@@ -441,8 +441,10 @@ Singleton {
     // ChatBot reply notifications (default off — replies stay in the tab).
     property bool chatBotNotify: false
     // OpenCode backend (agent/opencode provider): model override, empty =
-    // opencode's own default. Working directory is fixed, not followed-focus.
+    // opencode's own default. Effort variant appended as #suffix, empty =
+    // none (only applies when a model is explicitly selected).
     property string chatBotOpencodeModel: ""
+    property string chatBotOpencodeVariant: ""
     property string chatBotOpencodeDir: Quickshell.env("HOME") + "/Chandd"
 
     // Theme variants
@@ -969,6 +971,7 @@ Singleton {
                     notify: root.chatBotNotify,
                     opencode: {
                         model: root.chatBotOpencodeModel,
+                        variant: root.chatBotOpencodeVariant,
                         dir: root.chatBotOpencodeDir
                     }
                 },
@@ -1224,7 +1227,16 @@ Singleton {
                 root.chatBotNotify = s.chatBot?.notify ?? false;
                 // OpenCode backend settings (model empty = opencode default).
                 const cbOc = s.chatBot?.opencode ?? {};
-                root.chatBotOpencodeModel = (cbOc.model ?? "").toString().trim();
+                let cbOcModel = (cbOc.model ?? "").toString().trim();
+                let cbOcVariant = (cbOc.variant ?? "").toString().trim().replace(/^#+/, "");
+                // Migrate a hand-typed "model#variant" id from before the effort dropdown.
+                const hashAt = cbOcModel.indexOf("#");
+                if (hashAt >= 0 && cbOcVariant === "") {
+                    cbOcVariant = cbOcModel.slice(hashAt + 1).trim().replace(/^#+/, "");
+                    cbOcModel = cbOcModel.slice(0, hashAt).trim();
+                }
+                root.chatBotOpencodeModel = cbOcModel;
+                root.chatBotOpencodeVariant = cbOcVariant;
                 const cbOcDir = (cbOc.dir ?? "").toString().trim();
                 root.chatBotOpencodeDir = cbOcDir !== "" ? cbOcDir : Quickshell.env("HOME") + "/Chandd";
 
@@ -1666,6 +1678,9 @@ Singleton {
             root.schedulePersist();
         }
         function onChatBotOpencodeModelChanged() {
+            root.schedulePersist();
+        }
+        function onChatBotOpencodeVariantChanged() {
             root.schedulePersist();
         }
         function onChatBotOpencodeDirChanged() {

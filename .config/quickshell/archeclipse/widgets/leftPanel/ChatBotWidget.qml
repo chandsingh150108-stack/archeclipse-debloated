@@ -354,6 +354,7 @@ Item {
             p.command = ["python3", "-u", root.pythonScript, root.currentApiModel, text, root.activeSessionId];
         p.environment = isAgent ? ({
             "OPENCODE_MODEL": Settings.chatBotOpencodeModel,
+            "OPENCODE_VARIANT": Settings.chatBotOpencodeVariant,
             "OPENCODE_DIR": Settings.chatBotOpencodeDir,
             "OPENCODE_AGENT": "plan"
         }) : ({
