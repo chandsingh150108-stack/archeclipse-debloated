@@ -284,7 +284,7 @@ Item {
         }
 
         function showWidget(name: string, monitor: string): string {
-            const valid = ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"];
+            const valid = Settings.leftPanelWidgetNames;
             if (valid.indexOf(name) === -1) return "unknown widget: " + name;
             Settings.setLeftPanelWidgetFor(monitor, name);
             BarState.activate("left", 0, monitor);

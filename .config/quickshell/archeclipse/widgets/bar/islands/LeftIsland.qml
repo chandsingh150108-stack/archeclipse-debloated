@@ -32,7 +32,7 @@ Item {
     property real expand: 0
     // Tab-name order for the rail index mapping; names keep the QS "Widget" suffix for IPC
     // showWidget/widgetState compat.
-    readonly property var tabOrder: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"]
+    readonly property var tabOrder: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !Settings.hiddenLeftPanelTabs.includes(n))
     function tabIndex(name) {
         return Math.max(0, root.tabOrder.indexOf(name));
     }
@@ -270,7 +270,7 @@ Item {
                             name: "Donations",
                             icon: Icons.coffee
                         }
-                    ]
+                    ].filter(t => !Settings.hiddenLeftPanelTabs.includes(t.name))
                     currentIndex: root.tabIndex(root.selectedWidget)
                     onSelected: index => {
                         root.selectedWidget = root.tabOrder[index];

@@ -56,7 +56,11 @@ Singleton {
     property int lockGraceSeconds: 10
     // Selected left-panel tab (persisted)
     property string leftPanelWidget: "UserProfile"
-    readonly property var leftPanelWidgetNames: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"]
+    // Tabs hidden from the left rail (single source of truth: the rail, tabOrder,
+    // the IPC validator and the welcome tour all filter by this list). Delete a
+    // name here to bring that tab back — no other edit needed.
+    readonly property var hiddenLeftPanelTabs: ["MangaViewer", "Donations"]
+    readonly property var leftPanelWidgetNames: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"].filter(n => !root.hiddenLeftPanelTabs.includes(n))
     // Wallpaper switcher category (persisted)
     property string wallpaperCategory: "defaults/sfw"
     // Wallpaper provider: "local" (default/* + custom folders) or "wallhaven"; the
@@ -579,7 +583,10 @@ Singleton {
     function leftPanelWidgetFor(monitorName) {
         const name = String(monitorName || "");
         const override = name !== "" ? root.leftPanelByMonitor[name]?.widget : undefined;
-        return override === undefined ? root.leftPanelWidget : String(override);
+        const widget = override === undefined ? root.leftPanelWidget : String(override);
+        // A hidden tab saved from before the filter would otherwise render content
+        // the rail no longer shows; never resurrect it.
+        return root.leftPanelWidgetNames.includes(widget) ? widget : "UserProfile";
     }
 
     function setLeftPanelWidgetFor(monitorName, widget) {

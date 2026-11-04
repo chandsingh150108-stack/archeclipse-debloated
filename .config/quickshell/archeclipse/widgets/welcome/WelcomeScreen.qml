@@ -178,7 +178,7 @@ Scope {
     readonly property bool isLive: root.page >= 1 && root.page <= 5
     readonly property string cardSide: root.page === 2 ? "right" : (root.page === 3 ? "left" : (root.isLive ? "bottom" : ""))
     readonly property var _stepStates: ["", "search", "left", "right", "wallpaper", "control"]
-    readonly property var _leftWidgetTour: [
+    readonly property var _leftWidgetTourAll: [
         {
             tab: "UserProfile",
             title: "User profile",
@@ -220,6 +220,9 @@ Scope {
             description: "Check whether your account is linked and supporter status is active. The tab also links to sign-in and optional support methods."
         }
     ]
+    // The tour follows the rail: hidden tabs get no tour stop, and the index math
+    // below stays correct because it only reads this filtered view.
+    readonly property var _leftWidgetTour: root._leftWidgetTourAll.filter(w => !Settings.hiddenLeftPanelTabs.includes(w.tab))
     readonly property var _rightWidgetDescriptions: ({
         Waifu: {
             title: "Waifu media",
