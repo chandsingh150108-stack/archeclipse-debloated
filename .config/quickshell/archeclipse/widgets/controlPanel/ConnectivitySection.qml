@@ -72,8 +72,49 @@ Item {
         onTriggered: root.refreshWifi()
     }
     function connectWifi(ssid) {
-        const safe = (ssid ?? "").replace(/'/g, "'\\''");
-        Quickshell.execDetached(["bash", "-c", "nmcli device wifi connect '" + safe + "' && notify-send 'Wi-Fi' 'Connected to " + safe + "' || notify-send 'Wi-Fi' 'Failed to connect to " + safe + "'"]);
+        // Tapping the linked network still works (reconnect); anything else
+        // tries a plain join first — open/saved networks need nothing more.
+        root.wifiError = "";
+        root.attemptWifiConnect(ssid, "");
+    }
+    // Join flow: plain attempt first; a failure expands the inline password
+    // row for that SSID instead of failing silently.
+    property string wifiPendingSsid: ""
+    property string wifiError: ""
+    property string _wifiAttemptSsid: ""
+    function shellQuote(s) {
+        return "'" + String(s ?? "").replace(/'/g, "'\\''") + "'";
+    }
+    function attemptWifiConnect(ssid, password) {
+        if (wifiConnectProc.running)
+            return;
+        const s = ssid ?? "";
+        root._wifiAttemptSsid = s;
+        let cmd = "nmcli device wifi connect " + root.shellQuote(s);
+        if ((password ?? "") !== "")
+            cmd += " password " + root.shellQuote(password);
+        wifiConnectProc.command = ["bash", "-c", cmd + " 2>&1"];
+        wifiConnectProc.running = true;
+    }
+    property Process wifiConnectProc: Process {
+        stdout: StdioCollector {
+            id: wifiConnectOut
+        }
+        stderr: StdioCollector {
+            id: wifiConnectErr
+        }
+        onExited: code => {
+            const ssid = root._wifiAttemptSsid;
+            if (code === 0) {
+                root.wifiPendingSsid = "";
+                root.wifiError = "";
+                Quickshell.execDetached(["bash", "-c", "notify-send 'Wi-Fi' 'Connected to " + root.shellQuote(ssid) + "'"]);
+            } else {
+                const detail = (wifiConnectErr.text.trim() || wifiConnectOut.text.trim().split("\n").pop() || "connection failed").slice(0, 160);
+                root.wifiPendingSsid = ssid;
+                root.wifiError = detail;
+            }
+        }
     }
 
     // ---- bluetooth (bluetoothctl, polled while the section is open) ----
@@ -85,7 +126,7 @@ Item {
         btListProc.running = true;
     }
     property Process btShowProc: Process {
-        command: ["bash", "-c", "bluetoothctl show 2>/dev/null || echo MISSING"]
+        command: ["bash", "-c", "timeout 15 bluetoothctl show 2>/dev/null || echo MISSING"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const t = text.trim();
@@ -95,7 +136,7 @@ Item {
         }
     }
     property Process btListProc: Process {
-        command: ["bash", "-c", "bluetoothctl devices 2>/dev/null"]
+        command: ["bash", "-c", "timeout 15 bluetoothctl devices 2>/dev/null"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const out = [];
@@ -108,7 +149,30 @@ Item {
                         });
                 }
                 root.btDevices = out;
+                if (root._scanNotify) {
+                    root._scanNotify = false;
+                    Quickshell.execDetached(["bash", "-c", "notify-send 'Bluetooth' 'Scan complete — " + out.length + " device(s) nearby'"]);
+                }
             }
+        }
+    }
+    // Real scan: the plain device list only shows known devices, so a rescan
+    // without discovering finds nothing new. Busy-guarded; results feed the
+    // same list above with a count notification.
+    property bool btScanning: false
+    property bool _scanNotify: false
+    function scanBt() {
+        if (root.btScanning)
+            return;
+        root.btScanning = true;
+        root._scanNotify = true;
+        btScanProc.running = true;
+    }
+    property Process btScanProc: Process {
+        command: ["bash", "-c", "timeout 30 bluetoothctl --timeout 12 scan on >/dev/null 2>&1"]
+        onExited: {
+            root.btScanning = false;
+            root.refreshBt();
         }
     }
     function setBtPower(on) {
@@ -121,7 +185,11 @@ Item {
         onTriggered: root.refreshBt()
     }
     function connectBt(mac, name) {
-        Quickshell.execDetached(["bash", "-c", "bluetoothctl connect " + mac + " && notify-send 'Bluetooth' 'Connected to " + (name ?? mac).replace(/'/g, "'\\''") + "' || notify-send 'Bluetooth' 'Failed to connect'"]);
+        // Pair + trust before connect: bare connect fails on unpaired devices.
+        // Pair failure does not block the rest (already-paired devices skip it).
+        const safeMac = String(mac ?? "").replace(/[^0-9A-Fa-f:]/g, "");
+        const safeName = String(name ?? safeMac).replace(/'/g, "'\\''");
+        Quickshell.execDetached(["bash", "-c", "bluetoothctl pair " + safeMac + " >/dev/null 2>&1; bluetoothctl trust " + safeMac + " >/dev/null 2>&1; bluetoothctl connect " + safeMac + " && notify-send 'Bluetooth' 'Connected to " + safeName + "' || notify-send 'Bluetooth' 'Could not connect to " + safeName + "'"]);
     }
 
     readonly property string btStateText: !root.btAvailable ? "N/A" : (root.btPowered ? "On" : "Off")
@@ -246,7 +314,7 @@ Item {
                         text: "Rescan"
                         pixelSize: Theme.fontSize - 2
                         tooltipText: "Rescan Wi-Fi networks"
-                        onClicked: Quickshell.execDetached(["bash", "-c", "nmcli device wifi rescan"])
+                        onClicked: Quickshell.execDetached(["bash", "-c", "nmcli device wifi rescan && notify-send 'Wi-Fi' 'Rescanning networks…'"])
                     }
                 }
                 // Visible access points (top 6 by signal); click connects.
@@ -313,6 +381,60 @@ Item {
                         }
                     }
                 }
+                // Password row: expands under the list when the plain join failed
+                // for this SSID (unknown/changed password). Empty retries open.
+                Column {
+                    width: parent.width
+                    spacing: 4
+                    visible: root.wifiPendingSsid !== ""
+                    Text {
+                        text: "Password for " + root.wifiPendingSsid
+                        color: Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize - 1
+                        elide: Text.ElideMiddle
+                        width: parent.width
+                    }
+                    Text {
+                        visible: root.wifiError !== ""
+                        text: root.wifiError
+                        color: Theme.danger
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize - 2
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+                    Row {
+                        width: parent.width
+                        spacing: Theme.spacing
+                        AppTextField {
+                            id: wifiPassword
+                            width: parent.width - 152
+                            height: 30
+                            echoMode: TextInput.Password
+                            placeholderText: "Password (empty = retry open)"
+                            onAccepted: root.attemptWifiConnect(root.wifiPendingSsid, text)
+                        }
+                        AppButton {
+                            width: 70
+                            height: 30
+                            text: wifiConnectProc.running ? "Joining…" : "Join"
+                            tooltipText: "Join with this password"
+                            onClicked: root.attemptWifiConnect(root.wifiPendingSsid, wifiPassword.text)
+                        }
+                        AppButton {
+                            width: 70
+                            height: 30
+                            text: "Cancel"
+                            tooltipText: "Dismiss"
+                            onClicked: {
+                                root.wifiPendingSsid = "";
+                                root.wifiError = "";
+                                wifiPassword.text = "";
+                            }
+                        }
+                    }
+                }
             }
 
             // ----- Bluetooth -----
@@ -343,14 +465,14 @@ Item {
                         onToggled: root.setBtPower(checked)
                     }
                     AppButton {
-                        width: 70
+                        width: 90
                         height: 28
                         cornerRadius: Theme.radius
                         idleBg: Theme.surface
-                        text: "Refresh"
+                        text: root.btScanning ? "Scanning…" : "Scan"
                         pixelSize: Theme.fontSize - 2
-                        tooltipText: "Refresh Bluetooth devices"
-                        onClicked: root.refreshBt()
+                        tooltipText: "Scan for nearby Bluetooth devices"
+                        onClicked: root.scanBt()
                     }
                 }
                 Column {
